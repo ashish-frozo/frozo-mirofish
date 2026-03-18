@@ -1,8 +1,8 @@
-FROM python:3.11
+FROM python:3.11-slim
 
-# Install Node.js 18
+# Install Node.js 18 and system dependencies
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl \
+  && apt-get install -y --no-install-recommends curl gnupg libmagic1 \
   && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
   && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/*
@@ -17,7 +17,10 @@ COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 COPY backend/pyproject.toml backend/uv.lock ./backend/
 
-# Install dependencies (Node + Python)
+# Install CPU-only PyTorch first (avoids ~3GB CUDA downloads)
+RUN cd backend && uv venv && uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining dependencies
 RUN npm ci \
   && npm ci --prefix frontend \
   && cd backend && uv sync --frozen
@@ -29,10 +32,9 @@ COPY . .
 RUN cd frontend && npm run build
 
 # Railway assigns PORT dynamically; default to 5001
-ENV FLASK_PORT=${PORT:-5001}
 ENV FLASK_DEBUG=false
 
 EXPOSE ${PORT:-5001}
 
 # Run Flask backend (serves both API and built frontend)
-CMD cd backend && uv run python run.py
+CMD cd backend && FLASK_PORT=${PORT:-5001} uv run python run.py
