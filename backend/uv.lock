@@ -617,6 +617,23 @@ wheels = [
 ]
 
 [[package]]
+name = "dodopayments"
+version = "1.87.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/29/ea44fbaa2add3006c6b3f975a97a9c1948d7d63e14fec105dd63bcaa5f82/dodopayments-1.87.1.tar.gz", hash = "sha256:710cb02a5b8bd491be453285c90a940c4ff71f5c332dfad8f9e4efade743b836", size = 231259, upload-time = "2026-03-08T06:49:37.086Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/9a/983eada74c9f25aa45a04be949807802f1f87def01cc8a243793d03a8964/dodopayments-1.87.1-py3-none-any.whl", hash = "sha256:6c1ace5cdec179a3cf336a7ab377dc2040017b35c4f7ea1282ba074b3bcc85b5", size = 311059, upload-time = "2026-03-08T06:49:36.012Z" },
+]
+
+[[package]]
 name = "ecdsa"
 version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1456,6 +1473,7 @@ dependencies = [
     { name = "camel-oasis" },
     { name = "chardet" },
     { name = "charset-normalizer" },
+    { name = "dodopayments" },
     { name = "flask" },
     { name = "flask-cors" },
     { name = "flask-limiter" },
@@ -1491,6 +1509,7 @@ requires-dist = [
     { name = "camel-oasis", specifier = "==0.2.5" },
     { name = "chardet", specifier = ">=5.0.0" },
     { name = "charset-normalizer", specifier = ">=3.0.0" },
+    { name = "dodopayments", specifier = ">=1.0" },
     { name = "flask", specifier = ">=3.0.0" },
     { name = "flask-cors", specifier = ">=6.0.0" },
     { name = "flask-limiter", specifier = ">=3.5" },

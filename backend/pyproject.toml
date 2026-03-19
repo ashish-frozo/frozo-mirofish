@@ -43,6 +43,9 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "authlib>=1.3",
     "flask-limiter>=3.5",
+
+    # Billing
+    "dodopayments>=1.0",
 ]
 
 [project.optional-dependencies]

@@ -76,6 +76,14 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
     GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', '')
 
+    # Dodo Payments
+    DODO_API_KEY = os.environ.get('DODO_API_KEY', '')
+    DODO_WEBHOOK_SECRET = os.environ.get('DODO_WEBHOOK_SECRET', '')
+    DODO_STARTER_PRODUCT_ID = os.environ.get('DODO_STARTER_PRODUCT_ID', '')
+    DODO_PRO_PRODUCT_ID = os.environ.get('DODO_PRO_PRODUCT_ID', '')
+    DODO_ENVIRONMENT = os.environ.get('DODO_ENVIRONMENT', 'test_mode')
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://frozo-mirofish-production.up.railway.app')
+
     @classmethod
     def validate(cls):
         """Validate required configuration"""
