@@ -67,6 +67,25 @@ def create_app(config_class=Config):
         from .db import Base, engine
         from .models import db_models as _db_models  # noqa: ensure all models are registered
         Base.metadata.create_all(bind=engine)
+
+        # Add missing columns to existing tables (lightweight migration)
+        from sqlalchemy import text, inspect
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            existing_cols = {c['name'] for c in inspector.get_columns('users')}
+            new_cols = {
+                'dodo_customer_id': 'VARCHAR(255)',
+                'dodo_subscription_id': 'VARCHAR(255)',
+                'subscription_status': 'VARCHAR(50)',
+                'current_period_end': 'TIMESTAMP WITH TIME ZONE',
+            }
+            for col_name, col_type in new_cols.items():
+                if col_name not in existing_cols:
+                    conn.execute(text(f'ALTER TABLE users ADD COLUMN {col_name} {col_type}'))
+                    conn.commit()
+                    if should_log_startup:
+                        logger.info(f"Added missing column: users.{col_name}")
+
         if should_log_startup:
             logger.info("Database tables initialized")
     except Exception as e:
