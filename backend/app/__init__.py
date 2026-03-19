@@ -62,6 +62,16 @@ def create_app(config_class=Config):
         logger.debug(f"Response: {response.status_code}")
         return response
 
+    # Initialize database tables (auto-create if they don't exist)
+    try:
+        from .db import Base, engine
+        from .models.db_models import *  # noqa: ensure all models are registered
+        Base.metadata.create_all(bind=engine)
+        if should_log_startup:
+            logger.info("Database tables initialized")
+    except Exception as e:
+        logger.warning(f"Database initialization skipped: {e}")
+
     # Register error handlers
     from .middleware.errors import register_error_handlers
     register_error_handlers(app)
