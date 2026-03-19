@@ -216,7 +216,8 @@ const router = useRouter()
 const auth = useAuthStore()
 
 onMounted(() => {
-  if (auth.isAuthenticated) {
+  // Only redirect to dashboard from the public home page (/), not from /new
+  if (auth.isAuthenticated && router.currentRoute.value.path === '/') {
     router.replace('/dashboard')
   }
 })

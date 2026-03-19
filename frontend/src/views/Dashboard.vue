@@ -55,7 +55,7 @@
 
       <!-- New Prediction CTA -->
       <section class="cta-section">
-        <button class="new-prediction-btn" @click="router.push('/')">
+        <button class="new-prediction-btn" @click="router.push('/new')">
           <span class="btn-plus">+</span>
           <span class="btn-text">New Prediction</span>
           <span class="btn-arrow">-></span>
@@ -105,7 +105,7 @@
           </div>
           <p class="empty-title">No projects yet</p>
           <p class="empty-desc">Start your first prediction to see it here.</p>
-          <button class="empty-cta" @click="router.push('/')">
+          <button class="empty-cta" @click="router.push('/new')">
             Create Your First Prediction
           </button>
         </div>
