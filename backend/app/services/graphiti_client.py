@@ -170,12 +170,15 @@ class GraphitiClient:
         """Add a single text episode to the graph."""
         graphiti = self._get_graphiti()
         from graphiti_core.nodes import EpisodeType
+        from datetime import datetime, timezone
 
         async def _add():
             await graphiti.add_episode(
                 name=source,
                 episode_body=text,
                 source=EpisodeType.text,
+                source_description=f"MiroFish document: {source}",
+                reference_time=datetime.now(timezone.utc),
                 group_id=graph_id,
             )
 
