@@ -1,0 +1,30 @@
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
+
+/* Scroll-triggered animations */
+.animate-on-scroll {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.animate-on-scroll.animated {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Hero network graph subtle animation */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+}
+.float-animation {
+    animation: float 6s ease-in-out infinite;
+}
+.float-animation-delay {
+    animation: float 6s ease-in-out 2s infinite;
+}
+
+/* Nav shadow on scroll (added via JS) */
+.nav-scrolled {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}

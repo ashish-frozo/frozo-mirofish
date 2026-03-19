@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiroFish — AI Prediction Engine | Rehearse the Future Before It Happens</title>
+    <meta name="description" content="MiroFish builds digital parallel worlds with autonomous AI agents to predict how people will react to your scenarios. Try free for 14 days.">
+    <meta property="og:title" content="MiroFish — Rehearse the Future Before It Happens">
+    <meta property="og:description" content="AI-powered swarm intelligence engine for predicting public reaction, market sentiment, and policy impact.">
+    <meta property="og:type" content="website">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/landing/styles.css">
+</head>
+<body class="font-sans antialiased text-gray-900">
+
+    <!-- Navigation -->
+    <nav id="navbar" class="sticky top-0 z-50 bg-white transition-shadow duration-200">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <a href="/" class="text-xl font-bold text-gray-900 tracking-tight">MiroFish</a>
+
+                <!-- Desktop Nav Links -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Features</a>
+                    <a href="#use-cases" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Use Cases</a>
+                    <a href="#pricing" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Pricing</a>
+                    <a href="#faq" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">FAQ</a>
+                </div>
+
+                <!-- Desktop Auth -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <a href="/login" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Login</a>
+                    <a href="/signup" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">Start Free Trial</a>
+                </div>
+
+                <!-- Mobile Hamburger -->
+                <button id="mobile-menu-btn" class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition" aria-label="Open menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path id="hamburger-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        <path id="close-icon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white">
+            <div class="px-6 py-4 space-y-3">
+                <a href="#features" class="block text-sm font-medium text-gray-600 hover:text-gray-900 transition">Features</a>
+                <a href="#use-cases" class="block text-sm font-medium text-gray-600 hover:text-gray-900 transition">Use Cases</a>
+                <a href="#pricing" class="block text-sm font-medium text-gray-600 hover:text-gray-900 transition">Pricing</a>
+                <a href="#faq" class="block text-sm font-medium text-gray-600 hover:text-gray-900 transition">FAQ</a>
+                <hr class="border-gray-100">
+                <a href="/login" class="block text-sm font-medium text-gray-600 hover:text-gray-900 transition">Login</a>
+                <a href="/signup" class="block text-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition">Start Free Trial</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="py-24">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+                <!-- Left Content -->
+                <div class="w-full lg:w-1/2 animate-on-scroll">
+                    <span class="bg-blue-50 text-blue-600 text-sm font-medium px-4 py-1.5 rounded-full inline-block mb-6">Powered by Swarm Intelligence</span>
+                    <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-6">Rehearse the Future Before It Happens</h1>
+                    <p class="text-lg text-gray-500 leading-relaxed mb-8">MiroFish builds digital parallel worlds with autonomous AI agents to predict how people will react to your scenarios — before you commit.</p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <a href="/signup" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-lg font-semibold text-base transition text-center">Start Free Trial</a>
+                        <a href="mailto:mirofish@shanda.com" class="border border-gray-300 hover:border-gray-400 text-gray-700 px-8 py-3.5 rounded-lg font-medium text-base transition text-center">Book a Demo</a>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-4">14-day free trial. No credit card required.</p>
+                </div>
+
+                <!-- Right Visual -->
+                <div class="hidden lg:block w-1/2">
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-8 relative overflow-hidden min-h-[400px] flex items-center justify-center">
+                        <svg viewBox="0 0 500 400" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Connection lines -->
+                            <line x1="250" y1="180" x2="140" y2="100" stroke="#93C5FD" stroke-width="1.5" opacity="0.6"/>
+                            <line x1="250" y1="180" x2="370" y2="120" stroke="#93C5FD" stroke-width="1.5" opacity="0.6"/>
+                            <line x1="250" y1="180" x2="160" y2="280" stroke="#93C5FD" stroke-width="1.5" opacity="0.6"/>
+                            <line x1="250" y1="180" x2="350" y2="290" stroke="#93C5FD" stroke-width="1.5" opacity="0.6"/>
+                            <line x1="250" y1="180" x2="80" y2="200" stroke="#93C5FD" stroke-width="1.5" opacity="0.5"/>
+                            <line x1="250" y1="180" x2="420" y2="210" stroke="#93C5FD" stroke-width="1.5" opacity="0.5"/>
+                            <line x1="140" y1="100" x2="80" y2="200" stroke="#BFDBFE" stroke-width="1" opacity="0.5"/>
+                            <line x1="370" y1="120" x2="420" y2="210" stroke="#BFDBFE" stroke-width="1" opacity="0.5"/>
+                            <line x1="140" y1="100" x2="60" y2="60" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+                            <line x1="370" y1="120" x2="450" y2="70" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+                            <line x1="160" y1="280" x2="100" y2="340" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+                            <line x1="350" y1="290" x2="430" y2="340" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+                            <line x1="80" y1="200" x2="160" y2="280" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+                            <line x1="420" y1="210" x2="350" y2="290" stroke="#BFDBFE" stroke-width="1" opacity="0.4"/>
+
+                            <!-- Central node -->
+                            <g class="float-animation">
+                                <circle cx="250" cy="180" r="24" fill="#2563EB" opacity="0.9"/>
+                                <circle cx="250" cy="180" r="32" fill="#2563EB" opacity="0.1"/>
+                            </g>
+
+                            <!-- Primary nodes -->
+                            <g class="float-animation-delay">
+                                <circle cx="140" cy="100" r="16" fill="#3B82F6" opacity="0.85"/>
+                                <text x="140" y="80" text-anchor="middle" font-size="9" fill="#6B7280" font-family="Inter, sans-serif">Analyst</text>
+                            </g>
+                            <g class="float-animation">
+                                <circle cx="370" cy="120" r="18" fill="#3B82F6" opacity="0.85"/>
+                                <text x="370" y="98" text-anchor="middle" font-size="9" fill="#6B7280" font-family="Inter, sans-serif">Developer</text>
+                            </g>
+                            <g class="float-animation-delay">
+                                <circle cx="160" cy="280" r="15" fill="#60A5FA" opacity="0.8"/>
+                                <text x="160" y="304" text-anchor="middle" font-size="9" fill="#6B7280" font-family="Inter, sans-serif">Journalist</text>
+                            </g>
+                            <g class="float-animation">
+                                <circle cx="350" cy="290" r="14" fill="#60A5FA" opacity="0.8"/>
+                            </g>
+
+                            <!-- Secondary nodes -->
+                            <g class="float-animation-delay">
+                                <circle cx="80" cy="200" r="12" fill="#60A5FA" opacity="0.7"/>
+                            </g>
+                            <g class="float-animation">
+                                <circle cx="420" cy="210" r="13" fill="#3B82F6" opacity="0.75"/>
+                                <text x="420" y="232" text-anchor="middle" font-size="9" fill="#6B7280" font-family="Inter, sans-serif">Investor</text>
+                            </g>
+
+                            <!-- Tertiary nodes -->
+                            <g class="float-animation">
+                                <circle cx="60" cy="60" r="8" fill="#93C5FD" opacity="0.6"/>
+                            </g>
+                            <g class="float-animation-delay">
+                                <circle cx="450" cy="70" r="9" fill="#93C5FD" opacity="0.6"/>
+                            </g>
+                            <g class="float-animation">
+                                <circle cx="100" cy="340" r="7" fill="#93C5FD" opacity="0.55"/>
+                            </g>
+                            <g class="float-animation-delay">
+                                <circle cx="430" cy="340" r="8" fill="#93C5FD" opacity="0.55"/>
+                            </g>
+                            <g class="float-animation">
+                                <circle cx="300" cy="50" r="6" fill="#BFDBFE" opacity="0.5"/>
+                            </g>
+                            <g class="float-animation-delay">
+                                <circle cx="200" cy="350" r="6" fill="#BFDBFE" opacity="0.5"/>
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof Bar -->
+    <section class="bg-gray-50 border-y border-gray-100 py-6">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+                <span class="text-gray-400">Backed by</span>
+                <span class="font-bold text-gray-700">Shanda Group</span>
+                <span class="text-gray-300">&middot;</span>
+                <span class="text-gray-500 font-medium">1.2K+ GitHub Stars</span>
+                <span class="text-gray-300">&middot;</span>
+                <span class="text-gray-500">Built on OASIS by CAMEL-AI</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTIONS 5-12 WILL BE ADDED IN SUBSEQUENT TASKS -->
+
+    <!-- Scripts -->
+    <script>
+        // Nav shadow on scroll
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 10) {
+                navbar.classList.add('nav-scrolled');
+            } else {
+                navbar.classList.remove('nav-scrolled');
+            }
+        });
+
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const hamburgerIcon = document.getElementById('hamburger-icon');
+        const closeIcon = document.getElementById('close-icon');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            const isOpen = !mobileMenu.classList.contains('hidden');
+            mobileMenu.classList.toggle('hidden');
+            hamburgerIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
+        });
+
+        // Close mobile menu on link click
+        mobileMenu.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                hamburgerIcon.classList.remove('hidden');
+                closeIcon.classList.add('hidden');
+            });
+        });
+
+        // Scroll-triggered animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animated');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
