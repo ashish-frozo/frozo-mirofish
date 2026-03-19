@@ -99,17 +99,39 @@ def create_app(config_class=Config):
     def health():
         return {'status': 'ok', 'service': 'MiroFish Backend'}
 
-    # Serve frontend static files in production (built by Vite)
+    from flask import send_from_directory
+
+    # Serve landing page at /
+    landing_dir = os.path.join(os.path.dirname(__file__), '../../landing')
+    if os.path.isdir(landing_dir):
+        @app.route('/')
+        def serve_landing():
+            return send_from_directory(landing_dir, 'index.html')
+
+        @app.route('/landing/<path:path>')
+        def serve_landing_assets(path):
+            return send_from_directory(landing_dir, path)
+
+        if should_log_startup:
+            logger.info(f"Serving landing page from {landing_dir}")
+
+    # Serve static assets (images used by landing page)
+    static_dir = os.path.join(os.path.dirname(__file__), '../../static')
+    if os.path.isdir(static_dir):
+        @app.route('/static/<path:path>')
+        def serve_static_assets(path):
+            return send_from_directory(static_dir, path)
+
+    # Serve frontend SPA for all other routes
     frontend_dist = os.path.join(os.path.dirname(__file__), '../../frontend/dist')
     if os.path.isdir(frontend_dist):
-        from flask import send_from_directory
-
-        @app.route('/', defaults={'path': ''})
         @app.route('/<path:path>')
         def serve_frontend(path):
-            # Serve static files if they exist, otherwise serve index.html (SPA)
+            # Don't handle API, landing, static, or health routes
+            if path.startswith(('api/', 'landing/', 'static/', 'health')):
+                return
             file_path = os.path.join(frontend_dist, path)
-            if path and os.path.isfile(file_path):
+            if os.path.isfile(file_path):
                 return send_from_directory(frontend_dist, path)
             return send_from_directory(frontend_dist, 'index.html')
 
