@@ -86,17 +86,12 @@ class EpisodeStatus:
 
 
 def _run_async(coro):
-    """Run async coroutine in sync context."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're already in an async context, create a new thread
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                return pool.submit(asyncio.run, coro).result()
-        return loop.run_until_complete(coro)
-    except RuntimeError:
-        return asyncio.run(coro)
+    """Run async coroutine in sync context. Always uses asyncio.run() for a clean event loop."""
+    import concurrent.futures
+    # Always run in a fresh thread with a new event loop to avoid
+    # "Future attached to a different loop" errors
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 class GraphitiClient:
@@ -110,16 +105,14 @@ class GraphitiClient:
         self._graphiti = None
         self._neo4j_driver = None
 
-    def _get_graphiti(self):
-        """Lazy-init Graphiti instance."""
-        if self._graphiti is None:
-            from graphiti_core import Graphiti
-            self._graphiti = Graphiti(
-                uri=Config.NEO4J_URI,
-                user=Config.NEO4J_USER,
-                password=Config.NEO4J_PASSWORD,
-            )
-        return self._graphiti
+    def _new_graphiti(self):
+        """Create a fresh Graphiti instance (must be created per event loop)."""
+        from graphiti_core import Graphiti
+        return Graphiti(
+            uri=Config.NEO4J_URI,
+            user=Config.NEO4J_USER,
+            password=Config.NEO4J_PASSWORD,
+        )
 
     def _get_neo4j(self):
         """Lazy-init Neo4j driver for direct queries."""
@@ -136,11 +129,15 @@ class GraphitiClient:
     def create_graph(self, graph_id: str, name: str = "", description: str = ""):
         """Create/initialize a graph namespace. In Graphiti, this is implicit via group_id."""
         logger.info(f"Initializing graph namespace: {graph_id}")
-        # Graphiti uses group_id to namespace data. No explicit create needed.
-        # Initialize indexes if first time
         try:
-            graphiti = self._get_graphiti()
-            _run_async(graphiti.build_indices_and_constraints())
+            async def _init():
+                from graphiti_core import Graphiti
+                g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD)
+                try:
+                    await g.build_indices_and_constraints()
+                finally:
+                    await g.close()
+            _run_async(_init())
             logger.info(f"Graph {graph_id} initialized")
         except Exception as e:
             logger.warning(f"Index initialization (may already exist): {e}")
@@ -168,19 +165,23 @@ class GraphitiClient:
 
     def add_episode(self, graph_id: str, text: str, source: str = "document"):
         """Add a single text episode to the graph."""
-        graphiti = self._get_graphiti()
         from graphiti_core.nodes import EpisodeType
         from datetime import datetime, timezone
 
         async def _add():
-            await graphiti.add_episode(
-                name=source,
-                episode_body=text,
-                source=EpisodeType.text,
-                source_description=f"MiroFish document: {source}",
-                reference_time=datetime.now(timezone.utc),
-                group_id=graph_id,
-            )
+            from graphiti_core import Graphiti
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD)
+            try:
+                await g.add_episode(
+                    name=source,
+                    episode_body=text,
+                    source=EpisodeType.text,
+                    source_description=f"MiroFish document: {source}",
+                    reference_time=datetime.now(timezone.utc),
+                    group_id=graph_id,
+                )
+            finally:
+                await g.close()
 
         _run_async(_add())
         logger.info(f"Episode added to graph {graph_id} ({len(text)} chars)")
@@ -205,15 +206,19 @@ class GraphitiClient:
 
     def search(self, graph_id: str, query: str, limit: int = 10, scope: str = "all", **kwargs) -> list:
         """Search the knowledge graph. Returns list of SearchResult."""
-        graphiti = self._get_graphiti()
 
         async def _search():
-            results = await graphiti.search(
-                query=query,
-                group_ids=[graph_id],
-                num_results=limit,
-            )
-            return results
+            from graphiti_core import Graphiti
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD)
+            try:
+                results = await g.search(
+                    query=query,
+                    group_ids=[graph_id],
+                    num_results=limit,
+                )
+                return results
+            finally:
+                await g.close()
 
         raw_results = _run_async(_search())
 
