@@ -21,6 +21,11 @@
         >
           Trial: {{ auth.trialDaysLeft }} days left
         </span>
+        <span v-if="auth.currentPlan === 'starter'" style="background: #DBEAFE; color: #1D4ED8; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">Starter Plan</span>
+        <span v-else-if="auth.currentPlan === 'pro'" style="background: #EDE9FE; color: #6D28D9; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">Pro Plan</span>
+        <button v-if="auth.currentPlan !== 'trial'" @click="handleManageSubscription" style="background: transparent; border: 1px solid #d1d5db; color: #6b7280; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+          Manage Subscription
+        </button>
         <button class="logout-btn" @click="handleLogout" aria-label="Sign out">
           Sign Out
         </button>
@@ -29,6 +34,25 @@
 
     <!-- Main Content -->
     <main class="dashboard-main">
+      <!-- Payment Success Toast -->
+      <div v-if="paymentSuccess" style="background: #059669; color: white; padding: 12px 24px; border-radius: 8px; margin-bottom: 24px; text-align: center; font-weight: 500;">
+        Payment successful! Your plan is now active.
+      </div>
+
+      <!-- Upgrade Banner (when trial expired or no active plan) -->
+      <div v-if="auth.isTrialExpired || (!auth.canCreateProjects && auth.isAuthenticated)" style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 24px; margin-bottom: 24px; text-align: center;">
+        <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin-bottom: 8px;">Your trial has expired</h3>
+        <p style="color: #B91C1C; margin-bottom: 16px;">Upgrade to continue creating predictions.</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button @click="handleUpgrade('starter')" :disabled="upgrading" style="background: #2563EB; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer;">
+            {{ upgrading ? 'Loading...' : 'Starter — $19/mo' }}
+          </button>
+          <button @click="handleUpgrade('pro')" :disabled="upgrading" style="background: #2563EB; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer;">
+            {{ upgrading ? 'Loading...' : 'Pro — $49/mo' }}
+          </button>
+        </div>
+      </div>
+
       <!-- New Prediction CTA -->
       <section class="cta-section">
         <button class="new-prediction-btn" @click="router.push('/')">
@@ -140,17 +164,21 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import { listProjects, deleteProject } from '../api/projects'
+import { createCheckout, createPortal } from '../api/billing'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 
 const projects = ref([])
 const loading = ref(false)
 const error = ref(null)
 const deleting = ref(null)
+const upgrading = ref(false)
+const paymentSuccess = ref(false)
 
 const STATUS_MAP = {
   created:             { step: 1, label: 'Created' },
@@ -226,7 +254,35 @@ async function handleLogout() {
   router.push('/login')
 }
 
-onMounted(() => {
+async function handleUpgrade(plan) {
+  upgrading.value = true
+  try {
+    const res = await createCheckout(plan)
+    window.location.href = res.checkout_url
+  } catch (e) {
+    console.error('Checkout failed:', e)
+    alert('Failed to start checkout. Please try again.')
+  } finally {
+    upgrading.value = false
+  }
+}
+
+async function handleManageSubscription() {
+  try {
+    const res = await createPortal()
+    window.location.href = res.portal_url
+  } catch (e) {
+    console.error('Portal failed:', e)
+  }
+}
+
+onMounted(async () => {
+  if (route.query.payment === 'success') {
+    paymentSuccess.value = true
+    await auth.fetchUser()
+    router.replace({ path: '/dashboard' })
+    setTimeout(() => { paymentSuccess.value = false }, 5000)
+  }
   fetchProjects()
 })
 </script>

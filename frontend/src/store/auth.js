@@ -18,6 +18,20 @@ export const useAuthStore = defineStore('auth', () => {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
   })
 
+  const canCreateProjects = computed(() => {
+    if (!user.value) return false
+    const u = user.value
+    if (['starter', 'pro', 'enterprise'].includes(u.plan) && u.subscription_status === 'active') return true
+    if (['starter', 'pro'].includes(u.plan) && u.subscription_status === 'cancelled' && u.current_period_end) {
+      return new Date(u.current_period_end) > new Date()
+    }
+    if (u.plan === 'trial') return !isTrialExpired.value
+    return false
+  })
+
+  const currentPlan = computed(() => user.value?.plan || 'trial')
+  const subscriptionStatus = computed(() => user.value?.subscription_status || null)
+
   function setTokens(access, refresh) {
     accessToken.value = access
     refreshTokenValue.value = refresh
@@ -71,7 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, accessToken, refreshTokenValue,
-    isAuthenticated, isTrialExpired, trialDaysLeft,
+    isAuthenticated, isTrialExpired, trialDaysLeft, canCreateProjects, currentPlan, subscriptionStatus,
     signupAction, loginAction, logoutAction, fetchUser, refreshAccessToken, clearTokens, setTokens
   }
 })
