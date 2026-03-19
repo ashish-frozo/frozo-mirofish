@@ -13,12 +13,10 @@ import json
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
-from zep_cloud.client import Zep
-
 from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import LLMClient
-from ..utils.zep_paging import fetch_all_nodes, fetch_all_edges
+from .graphiti_client import GraphitiClient
 
 logger = get_logger('mirofish.zep_tools')
 
@@ -422,11 +420,7 @@ class ZepToolsService:
     RETRY_DELAY = 2.0
 
     def __init__(self, api_key: Optional[str] = None, llm_client: Optional[LLMClient] = None):
-        self.api_key = api_key or Config.ZEP_API_KEY
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY not configured")
-
-        self.client = Zep(api_key=self.api_key)
+        self.graphiti = GraphitiClient()
         # LLM client used for InsightForge sub-query generation
         self._llm_client = llm_client
         logger.info("ZepToolsService initialized")
@@ -485,51 +479,35 @@ class ZepToolsService:
         """
         logger.info(f"Graph search: graph_id={graph_id}, query={query[:50]}...")
         
-        # Try using Zep Cloud Search API
+        # Use Graphiti search API
         try:
             search_results = self._call_with_retry(
-                func=lambda: self.client.graph.search(
+                func=lambda: self.graphiti.search(
                     graph_id=graph_id,
                     query=query,
                     limit=limit,
-                    scope=scope,
-                    reranker="cross_encoder"
                 ),
                 operation_name=f"graph_search(graph={graph_id})"
             )
-            
+
             facts = []
             edges = []
             nodes = []
-            
-            # Parse edge search results
-            if hasattr(search_results, 'edges') and search_results.edges:
-                for edge in search_results.edges:
-                    if hasattr(edge, 'fact') and edge.fact:
-                        facts.append(edge.fact)
-                    edges.append({
-                        "uuid": getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', ''),
-                        "name": getattr(edge, 'name', ''),
-                        "fact": getattr(edge, 'fact', ''),
-                        "source_node_uuid": getattr(edge, 'source_node_uuid', ''),
-                        "target_node_uuid": getattr(edge, 'target_node_uuid', ''),
-                    })
-            
-            # Parse node search results
-            if hasattr(search_results, 'nodes') and search_results.nodes:
-                for node in search_results.nodes:
-                    nodes.append({
-                        "uuid": getattr(node, 'uuid_', None) or getattr(node, 'uuid', ''),
-                        "name": getattr(node, 'name', ''),
-                        "labels": getattr(node, 'labels', []),
-                        "summary": getattr(node, 'summary', ''),
-                    })
-                    # Node summaries also count as facts
-                    if hasattr(node, 'summary') and node.summary:
-                        facts.append(f"[{node.name}]: {node.summary}")
-            
+
+            # Parse Graphiti SearchResult objects
+            for sr in search_results:
+                if sr.fact:
+                    facts.append(sr.fact)
+                edges.append({
+                    "uuid": sr.uuid or "",
+                    "name": sr.relation_type or "",
+                    "fact": sr.fact or "",
+                    "source_node_uuid": sr.source_node or "",
+                    "target_node_uuid": sr.target_node or "",
+                })
+
             logger.info(f"Search complete: found {len(facts)} relevant facts")
-            
+
             return SearchResult(
                 facts=facts,
                 edges=edges,
@@ -537,9 +515,9 @@ class ZepToolsService:
                 query=query,
                 total_count=len(facts)
             )
-            
+
         except Exception as e:
-            logger.warning(f"Zep Search API failed, falling back to local search: {str(e)}")
+            logger.warning(f"Graphiti Search API failed, falling back to local search: {str(e)}")
             # Fallback: use local keyword matching search
             return self._local_search(graph_id, query, limit, scope)
     
@@ -659,15 +637,25 @@ class ZepToolsService:
         """
         logger.info(f"Getting all nodes for graph {graph_id}...")
 
-        nodes = fetch_all_nodes(self.client, graph_id)
+        all_nodes = []
+        cursor = None
+        page_size = 100
+        while True:
+            batch = self.graphiti.get_nodes_by_graph(graph_id, limit=page_size, cursor=cursor)
+            if not batch:
+                break
+            all_nodes.extend(batch)
+            if len(batch) < page_size:
+                break
+            cursor = batch[-1].uuid
 
         result = []
-        for node in nodes:
-            node_uuid = getattr(node, 'uuid_', None) or getattr(node, 'uuid', None) or ""
+        for node in all_nodes:
+            labels = [node.entity_type] if node.entity_type else []
             result.append(NodeInfo(
-                uuid=str(node_uuid) if node_uuid else "",
+                uuid=node.uuid,
                 name=node.name or "",
-                labels=node.labels or [],
+                labels=labels,
                 summary=node.summary or "",
                 attributes=node.attributes or {}
             ))
@@ -688,14 +676,23 @@ class ZepToolsService:
         """
         logger.info(f"Getting all edges for graph {graph_id}...")
 
-        edges = fetch_all_edges(self.client, graph_id)
+        all_edges = []
+        cursor = None
+        page_size = 100
+        while True:
+            batch = self.graphiti.get_edges_by_graph(graph_id, limit=page_size, cursor=cursor)
+            if not batch:
+                break
+            all_edges.extend(batch)
+            if len(batch) < page_size:
+                break
+            cursor = batch[-1].uuid
 
         result = []
-        for edge in edges:
-            edge_uuid = getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', None) or ""
+        for edge in all_edges:
             edge_info = EdgeInfo(
-                uuid=str(edge_uuid) if edge_uuid else "",
-                name=edge.name or "",
+                uuid=edge.uuid,
+                name=edge.relation_type or "",
                 fact=edge.fact or "",
                 source_node_uuid=edge.source_node_uuid or "",
                 target_node_uuid=edge.target_node_uuid or ""
@@ -703,10 +700,10 @@ class ZepToolsService:
 
             # Add temporal information
             if include_temporal:
-                edge_info.created_at = getattr(edge, 'created_at', None)
-                edge_info.valid_at = getattr(edge, 'valid_at', None)
-                edge_info.invalid_at = getattr(edge, 'invalid_at', None)
-                edge_info.expired_at = getattr(edge, 'expired_at', None)
+                edge_info.created_at = edge.created_at or None
+                edge_info.valid_at = edge.valid_at or None
+                edge_info.invalid_at = edge.invalid_at or None
+                edge_info.expired_at = edge.expired_at or None
 
             result.append(edge_info)
 
@@ -727,17 +724,18 @@ class ZepToolsService:
         
         try:
             node = self._call_with_retry(
-                func=lambda: self.client.graph.node.get(uuid_=node_uuid),
+                func=lambda: self.graphiti.get_node(node_uuid),
                 operation_name=f"get_node_detail(uuid={node_uuid[:8]}...)"
             )
-            
+
             if not node:
                 return None
-            
+
+            labels = [node.entity_type] if node.entity_type else []
             return NodeInfo(
-                uuid=getattr(node, 'uuid_', None) or getattr(node, 'uuid', ''),
+                uuid=node.uuid,
                 name=node.name or "",
-                labels=node.labels or [],
+                labels=labels,
                 summary=node.summary or "",
                 attributes=node.attributes or {}
             )
@@ -863,27 +861,20 @@ class ZepToolsService:
             Statistics information
         """
         logger.info(f"Getting statistics for graph {graph_id}...")
-        
-        nodes = self.get_all_nodes(graph_id)
+
+        stats = self.graphiti.get_graph_statistics(graph_id)
+
+        # Also compute relation_types which the adapter doesn't provide
         edges = self.get_all_edges(graph_id)
-        
-        # Count entity type distribution
-        entity_types = {}
-        for node in nodes:
-            for label in node.labels:
-                if label not in ["Entity", "Node"]:
-                    entity_types[label] = entity_types.get(label, 0) + 1
-        
-        # Count relationship type distribution
         relation_types = {}
         for edge in edges:
             relation_types[edge.name] = relation_types.get(edge.name, 0) + 1
-        
+
         return {
             "graph_id": graph_id,
-            "total_nodes": len(nodes),
-            "total_edges": len(edges),
-            "entity_types": entity_types,
+            "total_nodes": stats.get("total_nodes", 0),
+            "total_edges": stats.get("total_edges", 0),
+            "entity_types": stats.get("entity_types", {}),
             "relation_types": relation_types
         }
     
