@@ -15,6 +15,7 @@ from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
 from ..models.task import TaskManager, TaskStatus
 from ..utils.logger import get_logger
+from ..middleware.auth import require_auth
 
 logger = get_logger('mirofish.api.report')
 
@@ -22,6 +23,7 @@ logger = get_logger('mirofish.api.report')
 # ============== Report Generation APIs ==============
 
 @report_bp.route('/generate', methods=['POST'])
+@require_auth
 def generate_report():
     """
     Generate simulation analysis report (async task)
@@ -196,6 +198,7 @@ def generate_report():
 
 
 @report_bp.route('/generate/status', methods=['POST'])
+@require_auth
 def get_generate_status():
     """
     Query report generation task progress
@@ -270,6 +273,7 @@ def get_generate_status():
 # ============== Report Retrieval APIs ==============
 
 @report_bp.route('/<report_id>', methods=['GET'])
+@require_auth
 def get_report(report_id: str):
     """
     Get report details
@@ -312,6 +316,7 @@ def get_report(report_id: str):
 
 
 @report_bp.route('/by-simulation/<simulation_id>', methods=['GET'])
+@require_auth
 def get_report_by_simulation(simulation_id: str):
     """
     Get report by simulation ID
@@ -351,6 +356,7 @@ def get_report_by_simulation(simulation_id: str):
 
 
 @report_bp.route('/list', methods=['GET'])
+@require_auth
 def list_reports():
     """
     List all reports
@@ -391,6 +397,7 @@ def list_reports():
 
 
 @report_bp.route('/<report_id>/download', methods=['GET'])
+@require_auth
 def download_report(report_id: str):
     """
     Download report (Markdown format)
@@ -437,6 +444,7 @@ def download_report(report_id: str):
 
 
 @report_bp.route('/<report_id>', methods=['DELETE'])
+@require_auth
 def delete_report(report_id: str):
     """Delete a report"""
     try:
@@ -465,6 +473,7 @@ def delete_report(report_id: str):
 # ============== Report Agent Conversation API ==============
 
 @report_bp.route('/chat', methods=['POST'])
+@require_auth
 def chat_with_report_agent():
     """
     Chat with Report Agent
@@ -562,6 +571,7 @@ def chat_with_report_agent():
 # ============== Report Progress and Section APIs ==============
 
 @report_bp.route('/<report_id>/progress', methods=['GET'])
+@require_auth
 def get_report_progress(report_id: str):
     """
     Get report generation progress (realtime)
@@ -603,6 +613,7 @@ def get_report_progress(report_id: str):
 
 
 @report_bp.route('/<report_id>/sections', methods=['GET'])
+@require_auth
 def get_report_sections(report_id: str):
     """
     Get list of generated sections (section-by-section output)
@@ -654,6 +665,7 @@ def get_report_sections(report_id: str):
 
 
 @report_bp.route('/<report_id>/section/<int:section_index>', methods=['GET'])
+@require_auth
 def get_single_section(report_id: str, section_index: int):
     """
     Get single section content
@@ -700,6 +712,7 @@ def get_single_section(report_id: str, section_index: int):
 # ============== Report Status Check API ==============
 
 @report_bp.route('/check/<simulation_id>', methods=['GET'])
+@require_auth
 def check_report_status(simulation_id: str):
     """
     Check if a simulation has a report and its status
@@ -751,6 +764,7 @@ def check_report_status(simulation_id: str):
 # ============== Agent Log APIs ==============
 
 @report_bp.route('/<report_id>/agent-log', methods=['GET'])
+@require_auth
 def get_agent_log(report_id: str):
     """
     Get Report Agent detailed execution log
@@ -810,6 +824,7 @@ def get_agent_log(report_id: str):
 
 
 @report_bp.route('/<report_id>/agent-log/stream', methods=['GET'])
+@require_auth
 def stream_agent_log(report_id: str):
     """
     Get complete Agent log (one-time full retrieval)
@@ -846,6 +861,7 @@ def stream_agent_log(report_id: str):
 # ============== Console Log APIs ==============
 
 @report_bp.route('/<report_id>/console-log', methods=['GET'])
+@require_auth
 def get_console_log(report_id: str):
     """
     Get Report Agent console output log
@@ -892,6 +908,7 @@ def get_console_log(report_id: str):
 
 
 @report_bp.route('/<report_id>/console-log/stream', methods=['GET'])
+@require_auth
 def stream_console_log(report_id: str):
     """
     Get complete console log (one-time full retrieval)
@@ -928,6 +945,7 @@ def stream_console_log(report_id: str):
 # ============== Tool Call APIs (for debugging) ==============
 
 @report_bp.route('/tools/search', methods=['POST'])
+@require_auth
 def search_graph_tool():
     """
     Graph search tool endpoint (for debugging)
@@ -976,6 +994,7 @@ def search_graph_tool():
 
 
 @report_bp.route('/tools/statistics', methods=['POST'])
+@require_auth
 def get_graph_statistics_tool():
     """
     Graph statistics tool endpoint (for debugging)

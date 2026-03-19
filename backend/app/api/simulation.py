@@ -15,6 +15,7 @@ from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
+from ..middleware.auth import require_auth
 
 logger = get_logger('mirofish.api.simulation')
 
@@ -45,6 +46,7 @@ def optimize_interview_prompt(prompt: str) -> str:
 # ============== Entity Reading APIs ==============
 
 @simulation_bp.route('/entities/<graph_id>', methods=['GET'])
+@require_auth
 def get_graph_entities(graph_id: str):
     """
     Get all entities from a graph (filtered)
@@ -90,6 +92,7 @@ def get_graph_entities(graph_id: str):
 
 
 @simulation_bp.route('/entities/<graph_id>/<entity_uuid>', methods=['GET'])
+@require_auth
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Get detailed information for a single entity"""
     try:
@@ -123,6 +126,7 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 
 
 @simulation_bp.route('/entities/<graph_id>/by-type/<entity_type>', methods=['GET'])
+@require_auth
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Get all entities of a specified type"""
     try:
@@ -162,6 +166,7 @@ def get_entities_by_type(graph_id: str, entity_type: str):
 # ============== Simulation Management APIs ==============
 
 @simulation_bp.route('/create', methods=['POST'])
+@require_auth
 def create_simulation():
     """
     Create a new simulation
@@ -356,6 +361,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
 
 
 @simulation_bp.route('/prepare', methods=['POST'])
+@require_auth
 def prepare_simulation():
     """
     Prepare simulation environment (async task, LLM intelligently generates all parameters)
@@ -635,6 +641,7 @@ def prepare_simulation():
 
 
 @simulation_bp.route('/prepare/status', methods=['POST'])
+@require_auth
 def get_prepare_status():
     """
     Query preparation task progress
@@ -748,6 +755,7 @@ def get_prepare_status():
 
 
 @simulation_bp.route('/<simulation_id>', methods=['GET'])
+@require_auth
 def get_simulation(simulation_id: str):
     """Get simulation status"""
     try:
@@ -781,6 +789,7 @@ def get_simulation(simulation_id: str):
 
 
 @simulation_bp.route('/list', methods=['GET'])
+@require_auth
 def list_simulations():
     """
     List all simulations
@@ -869,6 +878,7 @@ def _get_report_id_for_simulation(simulation_id: str) -> str:
 
 
 @simulation_bp.route('/history', methods=['GET'])
+@require_auth
 def get_simulation_history():
     """
     Get historical simulation list (with project details)
@@ -984,6 +994,7 @@ def get_simulation_history():
 
 
 @simulation_bp.route('/<simulation_id>/profiles', methods=['GET'])
+@require_auth
 def get_simulation_profiles(simulation_id: str):
     """
     Get simulation Agent Profiles
@@ -1022,6 +1033,7 @@ def get_simulation_profiles(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/profiles/realtime', methods=['GET'])
+@require_auth
 def get_simulation_profiles_realtime(simulation_id: str):
     """
     Get simulation Agent Profiles in realtime (for viewing progress during generation)
@@ -1132,6 +1144,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config/realtime', methods=['GET'])
+@require_auth
 def get_simulation_config_realtime(simulation_id: str):
     """
     Get simulation config in realtime (for viewing progress during generation)
@@ -1252,6 +1265,7 @@ def get_simulation_config_realtime(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config', methods=['GET'])
+@require_auth
 def get_simulation_config(simulation_id: str):
     """
     Get simulation config (complete LLM-generated configuration)
@@ -1288,6 +1302,7 @@ def get_simulation_config(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/config/download', methods=['GET'])
+@require_auth
 def download_simulation_config(simulation_id: str):
     """Download simulation config file"""
     try:
@@ -1317,6 +1332,7 @@ def download_simulation_config(simulation_id: str):
 
 
 @simulation_bp.route('/script/<script_name>/download', methods=['GET'])
+@require_auth
 def download_simulation_script(script_name: str):
     """
     Download simulation run script file (shared scripts, located in backend/scripts/)
@@ -1371,6 +1387,7 @@ def download_simulation_script(script_name: str):
 # ============== Profile Generation API (standalone use) ==============
 
 @simulation_bp.route('/generate-profiles', methods=['POST'])
+@require_auth
 def generate_profiles():
     """
     Generate OASIS Agent Profiles directly from graph (without creating a simulation)
@@ -1445,6 +1462,7 @@ def generate_profiles():
 # ============== Simulation Run Control APIs ==============
 
 @simulation_bp.route('/start', methods=['POST'])
+@require_auth
 def start_simulation():
     """
     Start running a simulation
@@ -1638,6 +1656,7 @@ def start_simulation():
 
 
 @simulation_bp.route('/stop', methods=['POST'])
+@require_auth
 def stop_simulation():
     """
     Stop a simulation
@@ -1699,6 +1718,7 @@ def stop_simulation():
 # ============== Realtime Status Monitoring APIs ==============
 
 @simulation_bp.route('/<simulation_id>/run-status', methods=['GET'])
+@require_auth
 def get_run_status(simulation_id: str):
     """
     Get simulation realtime run status (for frontend polling)
@@ -1757,6 +1777,7 @@ def get_run_status(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/run-status/detail', methods=['GET'])
+@require_auth
 def get_run_status_detail(simulation_id: str):
     """
     Get detailed simulation run status (including all actions)
@@ -1858,6 +1879,7 @@ def get_run_status_detail(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/actions', methods=['GET'])
+@require_auth
 def get_simulation_actions(simulation_id: str):
     """
     Get Agent action history from a simulation
@@ -1912,6 +1934,7 @@ def get_simulation_actions(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/timeline', methods=['GET'])
+@require_auth
 def get_simulation_timeline(simulation_id: str):
     """
     Get simulation timeline (summarized by round)
@@ -1952,6 +1975,7 @@ def get_simulation_timeline(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/agent-stats', methods=['GET'])
+@require_auth
 def get_agent_stats(simulation_id: str):
     """
     Get statistics for each Agent
@@ -1981,6 +2005,7 @@ def get_agent_stats(simulation_id: str):
 # ============== Database Query APIs ==============
 
 @simulation_bp.route('/<simulation_id>/posts', methods=['GET'])
+@require_auth
 def get_simulation_posts(simulation_id: str):
     """
     Get posts from a simulation
@@ -2059,6 +2084,7 @@ def get_simulation_posts(simulation_id: str):
 
 
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
+@require_auth
 def get_simulation_comments(simulation_id: str):
     """
     Get comments from a simulation (Reddit only)
@@ -2136,6 +2162,7 @@ def get_simulation_comments(simulation_id: str):
 # ============== Interview APIs ==============
 
 @simulation_bp.route('/interview', methods=['POST'])
+@require_auth
 def interview_agent():
     """
     Interview a single Agent
@@ -2265,6 +2292,7 @@ def interview_agent():
 
 
 @simulation_bp.route('/interview/batch', methods=['POST'])
+@require_auth
 def interview_agents_batch():
     """
     Batch interview multiple Agents
@@ -2403,6 +2431,7 @@ def interview_agents_batch():
 
 
 @simulation_bp.route('/interview/all', methods=['POST'])
+@require_auth
 def interview_all_agents():
     """
     Global interview - interview all Agents with the same question
@@ -2506,6 +2535,7 @@ def interview_all_agents():
 
 
 @simulation_bp.route('/interview/history', methods=['POST'])
+@require_auth
 def get_interview_history():
     """
     Get interview history
@@ -2578,6 +2608,7 @@ def get_interview_history():
 
 
 @simulation_bp.route('/env-status', methods=['POST'])
+@require_auth
 def get_env_status():
     """
     Get simulation environment status
@@ -2643,6 +2674,7 @@ def get_env_status():
 
 
 @simulation_bp.route('/close-env', methods=['POST'])
+@require_auth
 def close_simulation_env():
     """
     Close simulation environment

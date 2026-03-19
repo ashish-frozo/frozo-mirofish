@@ -17,6 +17,7 @@ from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
+from ..middleware.auth import require_auth
 
 # Get logger
 logger = get_logger('mirofish.api')
@@ -33,6 +34,7 @@ def allowed_file(filename: str) -> bool:
 # ============== Project Management APIs ==============
 
 @graph_bp.route('/project/<project_id>', methods=['GET'])
+@require_auth
 def get_project(project_id: str):
     """
     Get project details
@@ -52,6 +54,7 @@ def get_project(project_id: str):
 
 
 @graph_bp.route('/project/list', methods=['GET'])
+@require_auth
 def list_projects():
     """
     List all projects
@@ -67,6 +70,7 @@ def list_projects():
 
 
 @graph_bp.route('/project/<project_id>', methods=['DELETE'])
+@require_auth
 def delete_project(project_id: str):
     """
     Delete a project
@@ -86,6 +90,7 @@ def delete_project(project_id: str):
 
 
 @graph_bp.route('/project/<project_id>/reset', methods=['POST'])
+@require_auth
 def reset_project(project_id: str):
     """
     Reset project status (for rebuilding the graph)
@@ -119,6 +124,7 @@ def reset_project(project_id: str):
 # ============== API 1: Upload Files and Generate Ontology ==============
 
 @graph_bp.route('/ontology/generate', methods=['POST'])
+@require_auth
 def generate_ontology():
     """
     API 1: Upload files, analyze and generate ontology definition
@@ -257,6 +263,7 @@ def generate_ontology():
 # ============== API 2: Build Graph ==============
 
 @graph_bp.route('/build', methods=['POST'])
+@require_auth
 def build_graph():
     """
     API 2: Build graph based on project_id
@@ -527,6 +534,7 @@ def build_graph():
 # ============== Task Query APIs ==============
 
 @graph_bp.route('/task/<task_id>', methods=['GET'])
+@require_auth
 def get_task(task_id: str):
     """
     Query task status
@@ -546,6 +554,7 @@ def get_task(task_id: str):
 
 
 @graph_bp.route('/tasks', methods=['GET'])
+@require_auth
 def list_tasks():
     """
     List all tasks
@@ -562,6 +571,7 @@ def list_tasks():
 # ============== Graph Data APIs ==============
 
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
+@require_auth
 def get_graph_data(graph_id: str):
     """
     Get graph data (nodes and edges)
@@ -590,6 +600,7 @@ def get_graph_data(graph_id: str):
 
 
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
+@require_auth
 def delete_graph(graph_id: str):
     """
     Delete a Zep graph
