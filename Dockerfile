@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Install Node.js 18 and system dependencies
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl gnupg libmagic1 \
-  && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+  && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/*
 
