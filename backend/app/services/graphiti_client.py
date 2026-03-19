@@ -88,10 +88,15 @@ class EpisodeStatus:
 def _run_async(coro):
     """Run async coroutine in sync context. Always uses asyncio.run() for a clean event loop."""
     import concurrent.futures
-    # Always run in a fresh thread with a new event loop to avoid
-    # "Future attached to a different loop" errors
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()
+
+
+def _safe_str(val):
+    """Convert any value to a JSON-safe string. Handles Neo4j DateTime objects."""
+    if val is None:
+        return None
+    return str(val)
 
 
 class GraphitiClient:
@@ -258,8 +263,8 @@ class GraphitiClient:
                 name=node.get("name", ""),
                 entity_type=(node.get("labels") or [""])[0] if node.get("labels") else "",
                 summary=node.get("summary", ""),
-                created_at=str(node.get("created_at", "")),
-                attributes=dict(node),
+                created_at=_safe_str(node.get("created_at")),
+                attributes={k: _safe_str(v) for k, v in dict(node).items() if k not in ('name_embedding',)},
             )
 
     def get_nodes_by_graph(self, graph_id: str, limit: int = 100, cursor: str = None) -> list:
@@ -320,10 +325,10 @@ class GraphitiClient:
                     target_node_uuid=record["target_uuid"],
                     relation_type=rel.type if hasattr(rel, 'type') else rel.get("name", ""),
                     fact=rel.get("fact", ""),
-                    created_at=str(rel.get("created_at", "")),
-                    valid_at=str(rel.get("valid_at", "")),
-                    invalid_at=str(rel.get("invalid_at", "")),
-                    attributes=dict(rel),
+                    created_at=_safe_str(rel.get("created_at")),
+                    valid_at=_safe_str(rel.get("valid_at")),
+                    invalid_at=_safe_str(rel.get("invalid_at")),
+                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if k not in ('fact_embedding',)},
                 ))
             return edges
 
@@ -345,8 +350,8 @@ class GraphitiClient:
                     target_node_uuid=record["target_uuid"],
                     relation_type=rel.type if hasattr(rel, 'type') else rel.get("name", ""),
                     fact=rel.get("fact", ""),
-                    created_at=str(rel.get("created_at", "")),
-                    attributes=dict(rel),
+                    created_at=_safe_str(rel.get("created_at")),
+                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if k not in ('fact_embedding',)},
                 ))
             return edges
 
