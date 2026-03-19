@@ -256,7 +256,7 @@ class GraphitiClient:
             return GraphNode(
                 uuid=node.get("uuid", node_uuid),
                 name=node.get("name", ""),
-                entity_type=node.get("entity_type", ""),
+                entity_type=(node.get("labels") or [""])[0] if node.get("labels") else "",
                 summary=node.get("summary", ""),
                 created_at=str(node.get("created_at", "")),
                 attributes=dict(node),
@@ -268,13 +268,13 @@ class GraphitiClient:
         with driver.session() as session:
             if cursor:
                 result = session.run(
-                    """MATCH (n:Entity) WHERE n.group_id = $group_id AND n.uuid > $cursor
+                    """MATCH (n:EntityNode) WHERE n.group_id = $group_id AND n.uuid > $cursor
                     RETURN n ORDER BY n.uuid LIMIT $limit""",
                     group_id=graph_id, cursor=cursor, limit=limit
                 )
             else:
                 result = session.run(
-                    """MATCH (n:Entity) WHERE n.group_id = $group_id
+                    """MATCH (n:EntityNode) WHERE n.group_id = $group_id
                     RETURN n ORDER BY n.uuid LIMIT $limit""",
                     group_id=graph_id, limit=limit
                 )
@@ -285,7 +285,7 @@ class GraphitiClient:
                 nodes.append(GraphNode(
                     uuid=node.get("uuid", ""),
                     name=node.get("name", ""),
-                    entity_type=node.get("entity_type", ""),
+                    entity_type=(node.get("labels") or [""])[0] if node.get("labels") else "",
                     summary=node.get("summary", ""),
                     created_at=str(node.get("created_at", "")),
                     attributes=dict(node),
@@ -358,7 +358,7 @@ class GraphitiClient:
         with driver.session() as session:
             # Node count
             node_count = session.run(
-                "MATCH (n:Entity) WHERE n.group_id = $gid RETURN count(n) AS cnt",
+                "MATCH (n:EntityNode) WHERE n.group_id = $gid RETURN count(n) AS cnt",
                 gid=graph_id
             ).single()["cnt"]
 
@@ -370,8 +370,9 @@ class GraphitiClient:
 
             # Entity types
             type_result = session.run(
-                """MATCH (n:Entity) WHERE n.group_id = $gid
-                RETURN n.entity_type AS etype, count(*) AS cnt""",
+                """MATCH (n:EntityNode) WHERE n.group_id = $gid
+                UNWIND n.labels AS label
+                RETURN label AS etype, count(*) AS cnt""",
                 gid=graph_id
             )
             entity_types = {}
