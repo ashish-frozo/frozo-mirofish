@@ -38,4 +38,5 @@ EXPOSE ${PORT:-5001}
 
 # Run Flask backend (serves both API and built frontend)
 WORKDIR /app/backend
-CMD ["sh", "-c", "FLASK_PORT=${PORT:-5001} uv run python run.py"]
+ENV FLASK_PORT=5001
+CMD uv run python run.py
