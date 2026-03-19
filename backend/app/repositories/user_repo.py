@@ -1,5 +1,6 @@
 """User repository — handles all user-related database operations."""
 
+import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 import bcrypt
 from sqlalchemy.orm import Session
@@ -36,6 +37,9 @@ class UserRepository:
         return user
 
     def get_by_id(self, user_id) -> UserModel | None:
+        # Ensure user_id is a proper UUID object for cross-dialect compatibility
+        if isinstance(user_id, str):
+            user_id = _uuid.UUID(user_id)
         return self.session.query(UserModel).filter(
             UserModel.id == user_id,
             UserModel.deleted_at.is_(None)

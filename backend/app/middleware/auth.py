@@ -1,6 +1,7 @@
 """Authentication middleware."""
 
 import functools
+import uuid as _uuid
 from datetime import datetime, timezone
 
 from flask import request, g, jsonify
@@ -32,8 +33,13 @@ def require_auth(f):
         except JWTError:
             return jsonify({"error": "Invalid or expired token", "code": "INVALID_TOKEN"}), 401
 
-        user_id = payload.get("sub")
-        if not user_id:
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return jsonify({"error": "Invalid token payload", "code": "INVALID_TOKEN"}), 401
+
+        try:
+            user_id = _uuid.UUID(user_id_str)
+        except (ValueError, AttributeError):
             return jsonify({"error": "Invalid token payload", "code": "INVALID_TOKEN"}), 401
 
         with get_db() as session:
