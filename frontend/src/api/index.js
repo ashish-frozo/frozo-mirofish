@@ -9,9 +9,13 @@ const service = axios.create({
   }
 })
 
-// Request interceptor
+// Request interceptor — attach auth token
 service.interceptors.request.use(
   config => {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   error => {
@@ -33,19 +37,46 @@ service.interceptors.response.use(
     
     return res
   },
-  error => {
+  async error => {
+    const originalRequest = error.config
+
+    // Auto-refresh on 401 (not for auth endpoints)
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/')) {
+      originalRequest._retry = true
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken) {
+        try {
+          // Call refresh endpoint directly (not through the store to avoid circular deps)
+          const refreshResp = await service.post('/api/auth/refresh', { refresh_token: refreshToken })
+          const newAccess = refreshResp.access_token
+          const newRefresh = refreshResp.refresh_token
+          localStorage.setItem('access_token', newAccess)
+          localStorage.setItem('refresh_token', newRefresh)
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`
+          return service(originalRequest)
+        } catch (refreshError) {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          window.location.href = '/login'
+          return Promise.reject(refreshError)
+        }
+      } else {
+        window.location.href = '/login'
+      }
+    }
+
     console.error('Response error:', error)
-    
+
     // Handle timeout
     if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
       console.error('Request timeout')
     }
-    
+
     // Handle network error
     if (error.message === 'Network Error') {
       console.error('Network error - please check your connection')
     }
-    
+
     return Promise.reject(error)
   }
 )
