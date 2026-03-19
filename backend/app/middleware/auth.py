@@ -56,17 +56,31 @@ def require_auth(f):
 
 
 def require_active_plan(f):
-    """Decorator: require non-expired trial or active paid plan. Must be used after @require_auth."""
+    """Decorator: require non-expired trial or active paid subscription."""
     @functools.wraps(f)
     @require_auth
     def decorated(*args, **kwargs):
         user = g.current_user
-        if user.plan == "trial" and datetime.now(timezone.utc) > user.trial_ends_at:
-            return jsonify({
-                "error": "Trial expired",
-                "code": "TRIAL_EXPIRED",
-                "trial_ends_at": user.trial_ends_at.isoformat(),
-            }), 403
-        return f(*args, **kwargs)
+        now = datetime.now(timezone.utc)
+
+        # Paid plan with active subscription — always allowed
+        if user.plan in ('starter', 'pro', 'enterprise') and user.subscription_status == 'active':
+            return f(*args, **kwargs)
+
+        # Paid plan cancelled — allowed until period ends
+        if user.plan in ('starter', 'pro') and user.subscription_status == 'cancelled':
+            if user.current_period_end and now < user.current_period_end:
+                return f(*args, **kwargs)
+
+        # Trial — allowed if not expired
+        if user.plan == 'trial' and now < user.trial_ends_at:
+            return f(*args, **kwargs)
+
+        # Everything else — blocked
+        return jsonify({
+            "error": "Active subscription required",
+            "code": "SUBSCRIPTION_REQUIRED",
+            "trial_expired": user.plan == 'trial',
+        }), 403
 
     return decorated
