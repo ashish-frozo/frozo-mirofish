@@ -12,10 +12,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue, Empty
 
-from zep_cloud.client import Zep
-
 from ..config import Config
 from ..utils.logger import get_logger
+from .graphiti_client import GraphitiClient
 
 logger = get_logger('mirofish.zep_graph_memory_updater')
 
@@ -233,16 +232,12 @@ class ZepGraphMemoryUpdater:
         Initialize updater
 
         Args:
-            graph_id: Zep graph ID
-            api_key: Zep API Key (optional, defaults to config value)
+            graph_id: Graph ID
+            api_key: Unused (kept for backward compatibility)
         """
         self.graph_id = graph_id
-        self.api_key = api_key or Config.ZEP_API_KEY
 
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY not configured")
-
-        self.client = Zep(api_key=self.api_key)
+        self.graphiti = GraphitiClient()
 
         # Activity queue
         self._activity_queue: Queue = Queue()
@@ -405,10 +400,10 @@ class ZepGraphMemoryUpdater:
         # Send with retries
         for attempt in range(self.MAX_RETRIES):
             try:
-                self.client.graph.add(
+                self.graphiti.add_episode(
                     graph_id=self.graph_id,
-                    type="text",
-                    data=combined_text
+                    text=combined_text,
+                    source="simulation"
                 )
 
                 self._total_sent += 1
@@ -420,10 +415,10 @@ class ZepGraphMemoryUpdater:
 
             except Exception as e:
                 if attempt < self.MAX_RETRIES - 1:
-                    logger.warning(f"Batch send to Zep failed (attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
+                    logger.warning(f"Batch send to Graphiti failed (attempt {attempt + 1}/{self.MAX_RETRIES}): {e}")
                     time.sleep(self.RETRY_DELAY * (attempt + 1))
                 else:
-                    logger.error(f"Batch send to Zep failed after {self.MAX_RETRIES} retries: {e}")
+                    logger.error(f"Batch send to Graphiti failed after {self.MAX_RETRIES} retries: {e}")
                     self._failed_count += 1
 
     def _flush_remaining(self):
