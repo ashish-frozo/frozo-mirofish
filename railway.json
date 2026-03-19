@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "cd backend && FLASK_PORT=$PORT FLASK_DEBUG=false uv run python run.py",
+    "startCommand": "FLASK_PORT=$PORT FLASK_DEBUG=false uv run python run.py",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
