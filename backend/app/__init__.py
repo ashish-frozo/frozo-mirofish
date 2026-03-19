@@ -65,7 +65,7 @@ def create_app(config_class=Config):
     # Initialize database tables (auto-create if they don't exist)
     try:
         from .db import Base, engine
-        import app.models.db_models  # noqa: ensure all models are registered
+        from .models import db_models as _db_models  # noqa: ensure all models are registered
         Base.metadata.create_all(bind=engine)
         if should_log_startup:
             logger.info("Database tables initialized")
