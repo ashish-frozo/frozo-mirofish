@@ -1,6 +1,6 @@
 """
 Simulation-related API routes
-Step 2: Zep entity reading & filtering, OASIS simulation preparation & execution (fully automated)
+Step 2: Entity reading & filtering, OASIS simulation preparation & execution (fully automated)
 """
 
 import os
@@ -60,12 +60,6 @@ def get_graph_entities(graph_id: str):
         enrich: Whether to get related edge information (default true)
     """
     try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
         entity_types_str = request.args.get('entity_types', '')
         entity_types = [t.strip() for t in entity_types_str.split(',') if t.strip()] if entity_types_str else None
         enrich = request.args.get('enrich', 'true').lower() == 'true'
@@ -98,12 +92,6 @@ def get_graph_entities(graph_id: str):
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Get detailed information for a single entity"""
     try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
         reader = ZepEntityReader()
         entity = reader.get_entity_with_context(graph_id, entity_uuid)
 
@@ -132,12 +120,6 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Get all entities of a specified type"""
     try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
         enrich = request.args.get('enrich', 'true').lower() == 'true'
 
         reader = ZepEntityReader()
@@ -394,7 +376,7 @@ def prepare_simulation():
 
     Steps:
     1. Check if preparation work is already complete
-    2. Read and filter entities from Zep graph
+    2. Read and filter entities from knowledge graph
     3. Generate OASIS Agent Profiles for each entity (with retry mechanism)
     4. LLM intelligently generates simulation configuration (with retry mechanism)
     5. Save config files and preset scripts
@@ -1574,7 +1556,7 @@ def start_simulation():
             "simulation_id": "sim_xxxx",          // Required, Simulation ID
             "platform": "parallel",                // Optional: twitter / reddit / parallel (default)
             "max_rounds": 100,                     // Optional: Max simulation rounds, for truncating overly long simulations
-            "enable_graph_memory_update": false,   // Optional: Whether to dynamically update Agent activity to Zep graph memory
+            "enable_graph_memory_update": false,   // Optional: Whether to dynamically update Agent activity to graph memory
             "force": false                         // Optional: Force restart (stops running simulation and cleans logs)
         }
 
@@ -1585,7 +1567,7 @@ def start_simulation():
         - Suitable for scenarios requiring simulation re-run
 
     About enable_graph_memory_update:
-        - When enabled, all Agent activities (posts, comments, likes, etc.) are updated to Zep graph in realtime
+        - When enabled, all Agent activities (posts, comments, likes, etc.) are updated to the knowledge graph in realtime
         - This lets the graph "remember" the simulation process for subsequent analysis or AI conversations
         - Requires the associated project to have a valid graph_id
         - Uses batch update mechanism to reduce API calls

@@ -362,17 +362,6 @@ def build_graph():
         repo = ProjectRepository(session)
         user_id = g.current_user.id
 
-        # Check configuration
-        errors = []
-        if not Config.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY is not configured")
-        if errors:
-            logger.error(f"Configuration errors: {errors}")
-            return jsonify({
-                "success": False,
-                "error": "Configuration errors: " + "; ".join(errors)
-            }), 500
-
         # Parse request
         data = request.get_json() or {}
         project_id = data.get('project_id')
@@ -478,7 +467,7 @@ def build_graph():
                     )
 
                 # Create graph building service
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+                builder = GraphBuilderService()
 
                 # Chunk text
                 with get_db() as s:
@@ -495,7 +484,7 @@ def build_graph():
                 # Create graph
                 with get_db() as s:
                     TaskRepository(s).update_progress(
-                        task_id, progress=10, message="Creating Zep graph..."
+                        task_id, progress=10, message="Creating graph..."
                     )
                 graph_id = builder.create_graph(name=graph_name)
 
@@ -534,11 +523,11 @@ def build_graph():
                     progress_callback=add_progress_callback
                 )
 
-                # Wait for Zep processing to complete (query processed status for each episode)
+                # Wait for graph processing to complete (query processed status for each episode)
                 with get_db() as s:
                     TaskRepository(s).update_progress(
                         task_id, progress=55,
-                        message="Waiting for Zep to process data..."
+                        message="Waiting for graph engine to process data..."
                     )
 
                 def wait_progress_callback(msg, progress_ratio):
@@ -674,13 +663,7 @@ def get_graph_data(graph_id: str):
     Get graph data (nodes and edges)
     """
     try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+        builder = GraphBuilderService()
         graph_data = builder.get_graph_data(graph_id)
 
         return jsonify({
@@ -700,16 +683,10 @@ def get_graph_data(graph_id: str):
 @require_auth
 def delete_graph(graph_id: str):
     """
-    Delete a Zep graph
+    Delete a graph
     """
     try:
-        if not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+        builder = GraphBuilderService()
         builder.delete_graph(graph_id)
 
         return jsonify({
