@@ -290,14 +290,14 @@ class GraphitiClient:
         with driver.session() as session:
             if cursor:
                 result = session.run(
-                    """MATCH (s)-[r]->(t) WHERE r.group_id = $group_id AND r.uuid > $cursor
+                    """MATCH (s)-[r:RELATES_TO]->(t) WHERE r.group_id = $group_id AND r.uuid > $cursor
                     RETURN r, s.uuid AS source_uuid, t.uuid AS target_uuid
                     ORDER BY r.uuid LIMIT $limit""",
                     group_id=graph_id, cursor=cursor, limit=limit
                 )
             else:
                 result = session.run(
-                    """MATCH (s)-[r]->(t) WHERE r.group_id = $group_id
+                    """MATCH (s)-[r:RELATES_TO]->(t) WHERE r.group_id = $group_id
                     RETURN r, s.uuid AS source_uuid, t.uuid AS target_uuid
                     ORDER BY r.uuid LIMIT $limit""",
                     group_id=graph_id, limit=limit
@@ -356,7 +356,7 @@ class GraphitiClient:
 
             # Edge count
             edge_count = session.run(
-                "MATCH ()-[r]->() WHERE r.group_id = $gid RETURN count(r) AS cnt",
+                "MATCH ()-[r:RELATES_TO]->() WHERE r.group_id = $gid RETURN count(r) AS cnt",
                 gid=graph_id
             ).single()["cnt"]
 
