@@ -6,7 +6,7 @@ Uses project context mechanism with server-side state persistence
 import os
 import traceback
 import threading
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 from . import graph_bp
 from ..config import Config
@@ -16,11 +16,37 @@ from ..services.text_processor import TextProcessor
 from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
-from ..models.project import ProjectManager, ProjectStatus
+from ..repositories.project_repo import ProjectRepository
+from ..db import get_db
 from ..middleware.auth import require_auth
 
 # Get logger
 logger = get_logger('mirofish.api')
+
+
+# ---------------------------------------------------------------------------
+# Serialization helpers
+# ---------------------------------------------------------------------------
+
+def _project_to_dict(project) -> dict:
+    """Serialize a ProjectModel to the dict shape the frontend expects."""
+    return {
+        "project_id": str(project.id),
+        "name": project.name,
+        "status": project.status,
+        "created_at": project.created_at.isoformat() if project.created_at else None,
+        "updated_at": project.updated_at.isoformat() if project.updated_at else None,
+        "files": project.seed_files or [],
+        "total_text_length": len(project.extracted_text) if project.extracted_text else 0,
+        "ontology": project.ontology,
+        "analysis_summary": project.analysis_summary,
+        "graph_id": project.graph_id,
+        "graph_build_task_id": project.step_data.get("graph_build_task_id") if project.step_data else None,
+        "simulation_requirement": project.simulation_requirement,
+        "chunk_size": project.chunk_size,
+        "chunk_overlap": project.chunk_overlap,
+        "error": project.step_data.get("error") if project.step_data else None,
+    }
 
 
 def allowed_file(filename: str) -> bool:
@@ -39,7 +65,11 @@ def get_project(project_id: str):
     """
     Get project details
     """
-    project = ProjectManager.get_project(project_id)
+    session = g.db_session
+    repo = ProjectRepository(session)
+    user_id = g.current_user.id
+
+    project = repo.get_by_id(project_id, user_id=user_id)
 
     if not project:
         return jsonify({
@@ -49,7 +79,7 @@ def get_project(project_id: str):
 
     return jsonify({
         "success": True,
-        "data": project.to_dict()
+        "data": _project_to_dict(project)
     })
 
 
@@ -57,14 +87,18 @@ def get_project(project_id: str):
 @require_auth
 def list_projects():
     """
-    List all projects
+    List all projects for the current user
     """
+    session = g.db_session
+    repo = ProjectRepository(session)
+    user_id = g.current_user.id
+
     limit = request.args.get('limit', 50, type=int)
-    projects = ProjectManager.list_projects(limit=limit)
+    projects = repo.list_by_user(user_id, limit=limit)
 
     return jsonify({
         "success": True,
-        "data": [p.to_dict() for p in projects],
+        "data": [_project_to_dict(p) for p in projects],
         "count": len(projects)
     })
 
@@ -75,7 +109,11 @@ def delete_project(project_id: str):
     """
     Delete a project
     """
-    success = ProjectManager.delete_project(project_id)
+    session = g.db_session
+    repo = ProjectRepository(session)
+    user_id = g.current_user.id
+
+    success = repo.delete(project_id, user_id)
 
     if not success:
         return jsonify({
@@ -95,7 +133,11 @@ def reset_project(project_id: str):
     """
     Reset project status (for rebuilding the graph)
     """
-    project = ProjectManager.get_project(project_id)
+    session = g.db_session
+    repo = ProjectRepository(session)
+    user_id = g.current_user.id
+
+    project = repo.get_by_id(project_id, user_id=user_id)
 
     if not project:
         return jsonify({
@@ -104,20 +146,23 @@ def reset_project(project_id: str):
         }), 404
 
     # Reset to ontology generated state
-    if project.ontology:
-        project.status = ProjectStatus.ONTOLOGY_GENERATED
-    else:
-        project.status = ProjectStatus.CREATED
+    new_status = "ontology_generated" if project.ontology else "created"
 
-    project.graph_id = None
-    project.graph_build_task_id = None
-    project.error = None
-    ProjectManager.save_project(project)
+    step_data = dict(project.step_data or {})
+    step_data.pop("graph_build_task_id", None)
+    step_data.pop("error", None)
+
+    repo.update(
+        project,
+        status=new_status,
+        graph_id=None,
+        step_data=step_data,
+    )
 
     return jsonify({
         "success": True,
         "message": f"Project reset: {project_id}",
-        "data": project.to_dict()
+        "data": _project_to_dict(project)
     })
 
 
@@ -141,7 +186,7 @@ def generate_ontology():
         {
             "success": true,
             "data": {
-                "project_id": "proj_xxxx",
+                "project_id": "...",
                 "ontology": {
                     "entity_types": [...],
                     "edge_types": [...],
@@ -154,6 +199,10 @@ def generate_ontology():
     """
     try:
         logger.info("=== Starting ontology generation ===")
+
+        session = g.db_session
+        repo = ProjectRepository(session)
+        user_id = g.current_user.id
 
         # Get parameters
         simulation_requirement = request.form.get('simulation_requirement', '')
@@ -177,10 +226,13 @@ def generate_ontology():
                 "error": "Please upload at least one document file"
             }), 400
 
-        # Create project
-        project = ProjectManager.create_project(name=project_name)
-        project.simulation_requirement = simulation_requirement
-        logger.info(f"Created project: {project.project_id}")
+        # Create project in DB
+        project = repo.create(
+            user_id=user_id,
+            name=project_name,
+            simulation_requirement=simulation_requirement,
+        )
+        logger.info(f"Created project: {project.id}")
 
         # Save files and extract text
         document_texts = []
@@ -188,33 +240,28 @@ def generate_ontology():
 
         for file in uploaded_files:
             if file and file.filename and allowed_file(file.filename):
-                # Save file to project directory
-                file_info = ProjectManager.save_file_to_project(
-                    project.project_id,
+                # Save file to project directory + DB metadata
+                file_info = repo.save_file_to_project(
+                    project,
                     file,
                     file.filename
                 )
-                project.files.append({
-                    "filename": file_info["original_filename"],
-                    "size": file_info["size"]
-                })
 
                 # Extract text
-                text = FileParser.extract_text(file_info["path"])
+                text = FileParser.extract_text(file_info["storage_path"])
                 text = TextProcessor.preprocess_text(text)
                 document_texts.append(text)
-                all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
+                all_text += f"\n\n=== {file_info['filename']} ===\n{text}"
 
         if not document_texts:
-            ProjectManager.delete_project(project.project_id)
+            repo.delete(str(project.id), user_id)
             return jsonify({
                 "success": False,
                 "error": "No documents were successfully processed. Please check file formats."
             }), 400
 
-        # Save extracted text
-        project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
+        # Save extracted text to DB column
+        repo.update(project, extracted_text=all_text)
         logger.info(f"Text extraction complete, {len(all_text)} characters total")
 
         # Generate ontology
@@ -231,24 +278,29 @@ def generate_ontology():
         edge_count = len(ontology.get("edge_types", []))
         logger.info(f"Ontology generation complete: {entity_count} entity types, {edge_count} relationship types")
 
-        project.ontology = {
+        ontology_data = {
             "entity_types": ontology.get("entity_types", []),
             "edge_types": ontology.get("edge_types", [])
         }
-        project.analysis_summary = ontology.get("analysis_summary", "")
-        project.status = ProjectStatus.ONTOLOGY_GENERATED
-        ProjectManager.save_project(project)
-        logger.info(f"=== Ontology generation complete === Project ID: {project.project_id}")
+        analysis_summary = ontology.get("analysis_summary", "")
+
+        repo.update(
+            project,
+            ontology=ontology_data,
+            analysis_summary=analysis_summary,
+            status="ontology_generated",
+        )
+        logger.info(f"=== Ontology generation complete === Project ID: {project.id}")
 
         return jsonify({
             "success": True,
             "data": {
-                "project_id": project.project_id,
+                "project_id": str(project.id),
                 "project_name": project.name,
                 "ontology": project.ontology,
                 "analysis_summary": project.analysis_summary,
-                "files": project.files,
-                "total_text_length": project.total_text_length
+                "files": project.seed_files,
+                "total_text_length": len(all_text)
             }
         })
 
@@ -270,8 +322,8 @@ def build_graph():
 
     Request (JSON):
         {
-            "project_id": "proj_xxxx",  // Required, from API 1
-            "graph_name": "Graph Name",  // Optional
+            "project_id": "...",       // Required, from API 1
+            "graph_name": "Graph Name", // Optional
             "chunk_size": 500,          // Optional, default 500
             "chunk_overlap": 50         // Optional, default 50
         }
@@ -280,7 +332,7 @@ def build_graph():
         {
             "success": true,
             "data": {
-                "project_id": "proj_xxxx",
+                "project_id": "...",
                 "task_id": "task_xxxx",
                 "message": "Graph building task started"
             }
@@ -288,6 +340,10 @@ def build_graph():
     """
     try:
         logger.info("=== Starting graph building ===")
+
+        session = g.db_session
+        repo = ProjectRepository(session)
+        user_id = g.current_user.id
 
         # Check configuration
         errors = []
@@ -312,7 +368,7 @@ def build_graph():
             }), 400
 
         # Get project
-        project = ProjectManager.get_project(project_id)
+        project = repo.get_by_id(project_id, user_id=user_id)
         if not project:
             return jsonify({
                 "success": False,
@@ -321,26 +377,30 @@ def build_graph():
 
         # Check project status
         force = data.get('force', False)  # Force rebuild
+        step_data = dict(project.step_data or {})
 
-        if project.status == ProjectStatus.CREATED:
+        if project.status == "created":
             return jsonify({
                 "success": False,
                 "error": "Project ontology has not been generated yet. Please call /ontology/generate first."
             }), 400
 
-        if project.status == ProjectStatus.GRAPH_BUILDING and not force:
+        if project.status == "graph_building" and not force:
             return jsonify({
                 "success": False,
                 "error": "Graph is currently being built. Please do not submit again. To force rebuild, add force: true",
-                "task_id": project.graph_build_task_id
+                "task_id": step_data.get("graph_build_task_id")
             }), 400
 
         # If force rebuild, reset status
-        if force and project.status in [ProjectStatus.GRAPH_BUILDING, ProjectStatus.FAILED, ProjectStatus.GRAPH_COMPLETED]:
-            project.status = ProjectStatus.ONTOLOGY_GENERATED
-            project.graph_id = None
-            project.graph_build_task_id = None
-            project.error = None
+        if force and project.status in ["graph_building", "failed", "graph_completed"]:
+            repo.update(
+                project,
+                status="ontology_generated",
+                graph_id=None,
+            )
+            step_data.pop("graph_build_task_id", None)
+            step_data.pop("error", None)
 
         # Get configuration
         graph_name = data.get('graph_name', project.name or 'MiroFish Graph')
@@ -348,11 +408,10 @@ def build_graph():
         chunk_overlap = data.get('chunk_overlap', project.chunk_overlap or Config.DEFAULT_CHUNK_OVERLAP)
 
         # Update project configuration
-        project.chunk_size = chunk_size
-        project.chunk_overlap = chunk_overlap
+        repo.update(project, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
         # Get extracted text
-        text = ProjectManager.get_extracted_text(project_id)
+        text = project.extracted_text
         if not text:
             return jsonify({
                 "success": False,
@@ -373,9 +432,15 @@ def build_graph():
         logger.info(f"Created graph building task: task_id={task_id}, project_id={project_id}")
 
         # Update project status
-        project.status = ProjectStatus.GRAPH_BUILDING
-        project.graph_build_task_id = task_id
-        ProjectManager.save_project(project)
+        step_data["graph_build_task_id"] = task_id
+        repo.update(
+            project,
+            status="graph_building",
+            step_data=step_data,
+        )
+
+        # Capture project_id as string for the background thread
+        project_id_str = str(project.id)
 
         # Start background task
         def build_task():
@@ -412,9 +477,12 @@ def build_graph():
                 )
                 graph_id = builder.create_graph(name=graph_name)
 
-                # Update project graph_id
-                project.graph_id = graph_id
-                ProjectManager.save_project(project)
+                # Update project graph_id in a new session (background thread)
+                with get_db() as bg_session:
+                    bg_repo = ProjectRepository(bg_session)
+                    bg_project = bg_repo.get_by_id(project_id_str)
+                    if bg_project:
+                        bg_repo.update(bg_project, graph_id=graph_id)
 
                 # Set ontology
                 task_manager.update_task(
@@ -472,8 +540,11 @@ def build_graph():
                 graph_data = builder.get_graph_data(graph_id)
 
                 # Update project status
-                project.status = ProjectStatus.GRAPH_COMPLETED
-                ProjectManager.save_project(project)
+                with get_db() as bg_session:
+                    bg_repo = ProjectRepository(bg_session)
+                    bg_project = bg_repo.get_by_id(project_id_str)
+                    if bg_project:
+                        bg_repo.update(bg_project, status="graph_completed")
 
                 node_count = graph_data.get("node_count", 0)
                 edge_count = graph_data.get("edge_count", 0)
@@ -486,7 +557,7 @@ def build_graph():
                     message="Graph building complete",
                     progress=100,
                     result={
-                        "project_id": project_id,
+                        "project_id": project_id_str,
                         "graph_id": graph_id,
                         "node_count": node_count,
                         "edge_count": edge_count,
@@ -499,9 +570,13 @@ def build_graph():
                 build_logger.error(f"[{task_id}] Graph building failed: {str(e)}")
                 build_logger.debug(traceback.format_exc())
 
-                project.status = ProjectStatus.FAILED
-                project.error = str(e)
-                ProjectManager.save_project(project)
+                with get_db() as bg_session:
+                    bg_repo = ProjectRepository(bg_session)
+                    bg_project = bg_repo.get_by_id(project_id_str)
+                    if bg_project:
+                        sd = dict(bg_project.step_data or {})
+                        sd["error"] = str(e)
+                        bg_repo.update(bg_project, status="failed", step_data=sd)
 
                 task_manager.update_task(
                     task_id,
@@ -517,7 +592,7 @@ def build_graph():
         return jsonify({
             "success": True,
             "data": {
-                "project_id": project_id,
+                "project_id": project_id_str,
                 "task_id": task_id,
                 "message": "Graph building task started. Check progress via /task/{task_id}"
             }
