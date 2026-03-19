@@ -14,6 +14,8 @@ from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
 from ..repositories.task_repo import TaskRepository
+from ..repositories.report_repo import ReportRepository
+from ..repositories.simulation_repo import SimulationRepository
 from ..db import get_db
 from ..utils.logger import get_logger
 from ..middleware.auth import require_auth
@@ -112,7 +114,8 @@ def generate_report():
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
 
-        # Create async task (DB-backed)
+        # Create async task and DB report record
+        db_report_id = None
         with get_db() as session:
             task_repo = TaskRepository(session)
             task = task_repo.create(
@@ -126,6 +129,21 @@ def generate_report():
             )
             task_id = str(task.id)
 
+            # Dual-write: create report record in DB
+            try:
+                report_repo = ReportRepository(session)
+                sim_repo = SimulationRepository(session)
+                sim_row = sim_repo.get_by_simulation_id(simulation_id)
+                db_report = report_repo.create(
+                    project_id=sim_row.project_id if sim_row else state.project_id,
+                    simulation_id=sim_row.id if sim_row else None,
+                    graph_id=graph_id,
+                    simulation_requirement=simulation_requirement,
+                )
+                db_report_id = str(db_report.id)
+            except Exception as exc:
+                logger.warning(f"Failed to create DB report record (non-fatal): {exc}")
+
         # Define background task
         def run_generate():
             try:
@@ -134,6 +152,12 @@ def generate_report():
                         task_id, status="running", progress=0,
                         message="Initializing Report Agent..."
                     )
+                    # Update DB report status
+                    if db_report_id:
+                        try:
+                            ReportRepository(s).update(db_report_id, status="generating")
+                        except Exception:
+                            pass
 
                 # Create Report Agent
                 agent = ReportAgent(
@@ -156,8 +180,29 @@ def generate_report():
                     report_id=report_id
                 )
 
-                # Save report
+                # Save report (file-based)
                 ReportManager.save_report(report)
+
+                # Sync result back to DB
+                if db_report_id:
+                    try:
+                        with get_db() as s:
+                            repo = ReportRepository(s)
+                            update_fields = {
+                                "title": getattr(report, 'title', '') or report_id,
+                                "summary": getattr(report, 'summary', None),
+                                "markdown_content": getattr(report, 'markdown_content', None),
+                                "status": report.status.value if hasattr(report.status, 'value') else str(report.status),
+                                "error": getattr(report, 'error', None),
+                            }
+                            if hasattr(report, 'outline') and report.outline:
+                                update_fields["outline"] = report.outline if isinstance(report.outline, dict) else {"sections": report.outline}
+                            if report.status == ReportStatus.COMPLETED:
+                                from datetime import datetime, timezone
+                                update_fields["completed_at"] = datetime.now(timezone.utc)
+                            repo.update(db_report_id, **update_fields)
+                    except Exception as exc:
+                        logger.warning(f"Failed to sync report to DB (non-fatal): {exc}")
 
                 if report.status == ReportStatus.COMPLETED:
                     with get_db() as s:
@@ -174,6 +219,12 @@ def generate_report():
                 logger.error(f"Report generation failed: {str(e)}")
                 with get_db() as s:
                     TaskRepository(s).fail(task_id, error=str(e))
+                    # Mark DB report as failed
+                    if db_report_id:
+                        try:
+                            ReportRepository(s).update(db_report_id, status="failed", error=str(e))
+                        except Exception:
+                            pass
 
         # Start background thread
         thread = threading.Thread(target=run_generate, daemon=True)
@@ -311,6 +362,7 @@ def get_report(report_id: str):
         }
     """
     try:
+        # Try file-based first (primary source during migration)
         report = ReportManager.get_report(report_id)
 
         if not report:
@@ -467,6 +519,13 @@ def delete_report(report_id: str):
     """Delete a report"""
     try:
         success = ReportManager.delete_report(report_id)
+
+        # Dual-write: also delete from DB (best-effort)
+        try:
+            with get_db() as session:
+                ReportRepository(session).delete(report_id)
+        except Exception as exc:
+            logger.debug(f"DB report delete skipped (non-fatal): {exc}")
 
         if not success:
             return jsonify({
