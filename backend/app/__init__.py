@@ -72,6 +72,17 @@ def create_app(config_class=Config):
     except Exception as e:
         logger.warning(f"Database initialization skipped: {e}")
 
+    # Recover stale tasks from previous server crashes
+    try:
+        from .db import get_db
+        with get_db() as session:
+            from .repositories.task_repo import TaskRepository
+            count = TaskRepository(session).recover_stale()
+            if count > 0 and should_log_startup:
+                logger.info(f"Recovered {count} stale tasks from previous crash")
+    except Exception as e:
+        logger.warning(f"Task recovery skipped: {e}")
+
     # Register error handlers
     from .middleware.errors import register_error_handlers
     register_error_handlers(app)

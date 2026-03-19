@@ -6,14 +6,15 @@ Provides simulation report generation, retrieval, conversation, and other endpoi
 import os
 import traceback
 import threading
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 
 from . import report_bp
 from ..config import Config
 from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
-from ..models.task import TaskManager, TaskStatus
+from ..repositories.task_repo import TaskRepository
+from ..db import get_db
 from ..utils.logger import get_logger
 from ..middleware.auth import require_auth
 
@@ -111,26 +112,28 @@ def generate_report():
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
 
-        # Create async task
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(
-            task_type="report_generate",
-            metadata={
-                "simulation_id": simulation_id,
-                "graph_id": graph_id,
-                "report_id": report_id
-            }
-        )
+        # Create async task (DB-backed)
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.create(
+                user_id=g.current_user.id,
+                task_type="report_generate",
+                metadata={
+                    "simulation_id": simulation_id,
+                    "graph_id": graph_id,
+                    "report_id": report_id,
+                },
+            )
+            task_id = str(task.id)
 
         # Define background task
         def run_generate():
             try:
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.PROCESSING,
-                    progress=0,
-                    message="Initializing Report Agent..."
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, status="running", progress=0,
+                        message="Initializing Report Agent..."
+                    )
 
                 # Create Report Agent
                 agent = ReportAgent(
@@ -141,11 +144,11 @@ def generate_report():
 
                 # Progress callback
                 def progress_callback(stage, progress, message):
-                    task_manager.update_task(
-                        task_id,
-                        progress=progress,
-                        message=f"[{stage}] {message}"
-                    )
+                    with get_db() as s:
+                        TaskRepository(s).update_progress(
+                            task_id, progress=progress,
+                            message=f"[{stage}] {message}"
+                        )
 
                 # Generate report (pass pre-generated report_id)
                 report = agent.generate_report(
@@ -157,20 +160,20 @@ def generate_report():
                 ReportManager.save_report(report)
 
                 if report.status == ReportStatus.COMPLETED:
-                    task_manager.complete_task(
-                        task_id,
-                        result={
+                    with get_db() as s:
+                        TaskRepository(s).complete(task_id, result={
                             "report_id": report.report_id,
                             "simulation_id": simulation_id,
                             "status": "completed"
-                        }
-                    )
+                        })
                 else:
-                    task_manager.fail_task(task_id, report.error or "Report generation failed")
+                    with get_db() as s:
+                        TaskRepository(s).fail(task_id, error=report.error or "Report generation failed")
 
             except Exception as e:
                 logger.error(f"Report generation failed: {str(e)}")
-                task_manager.fail_task(task_id, str(e))
+                with get_db() as s:
+                    TaskRepository(s).fail(task_id, error=str(e))
 
         # Start background thread
         thread = threading.Thread(target=run_generate, daemon=True)
@@ -248,18 +251,33 @@ def get_generate_status():
                 "error": "Please provide task_id or simulation_id"
             }), 400
 
-        task_manager = TaskManager()
-        task = task_manager.get_task(task_id)
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.get_by_id(task_id)
 
-        if not task:
-            return jsonify({
-                "success": False,
-                "error": f"Task not found: {task_id}"
-            }), 404
+            if not task:
+                return jsonify({
+                    "success": False,
+                    "error": f"Task not found: {task_id}"
+                }), 404
+
+            task_dict = {
+                "task_id": str(task.id),
+                "task_type": task.type,
+                "status": task.status,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": None,
+                "progress": task.progress,
+                "message": task.message or "",
+                "progress_detail": task.metadata_.get("progress_detail", {}) if task.metadata_ else {},
+                "result": task.result,
+                "error": task.error,
+                "metadata": task.metadata_ or {},
+            }
 
         return jsonify({
             "success": True,
-            "data": task.to_dict()
+            "data": task_dict
         })
 
     except Exception as e:

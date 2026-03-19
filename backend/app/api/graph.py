@@ -15,8 +15,8 @@ from ..services.graph_builder import GraphBuilderService
 from ..services.text_processor import TextProcessor
 from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
-from ..models.task import TaskManager, TaskStatus
 from ..repositories.project_repo import ProjectRepository
+from ..repositories.task_repo import TaskRepository
 from ..db import get_db
 from ..middleware.auth import require_auth
 
@@ -46,6 +46,23 @@ def _project_to_dict(project) -> dict:
         "chunk_size": project.chunk_size,
         "chunk_overlap": project.chunk_overlap,
         "error": project.step_data.get("error") if project.step_data else None,
+    }
+
+
+def _task_to_dict(task) -> dict:
+    """Serialize a TaskModel to the dict shape the frontend expects."""
+    return {
+        "task_id": str(task.id),
+        "task_type": task.type,
+        "status": task.status,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "updated_at": None,  # TaskModel has no updated_at; use created_at
+        "progress": task.progress,
+        "message": task.message or "",
+        "progress_detail": task.metadata_.get("progress_detail", {}) if task.metadata_ else {},
+        "result": task.result,
+        "error": task.error,
+        "metadata": task.metadata_ or {},
     }
 
 
@@ -426,9 +443,16 @@ def build_graph():
                 "error": "Ontology definition not found"
             }), 400
 
-        # Create async task
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(f"Build graph: {graph_name}")
+        # Create async task (DB-backed)
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.create(
+                user_id=g.current_user.id,
+                task_type="graph_build",
+                project_id=project.id,
+                metadata={"graph_name": graph_name},
+            )
+            task_id = str(task.id)
         logger.info(f"Created graph building task: task_id={task_id}, project_id={project_id}")
 
         # Update project status
@@ -447,21 +471,20 @@ def build_graph():
             build_logger = get_logger('mirofish.build')
             try:
                 build_logger.info(f"[{task_id}] Starting graph building...")
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.PROCESSING,
-                    message="Initializing graph building service..."
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, status="running", progress=0,
+                        message="Initializing graph building service..."
+                    )
 
                 # Create graph building service
                 builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
 
                 # Chunk text
-                task_manager.update_task(
-                    task_id,
-                    message="Chunking text...",
-                    progress=5
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=5, message="Chunking text..."
+                    )
                 chunks = TextProcessor.split_text(
                     text,
                     chunk_size=chunk_size,
@@ -470,11 +493,10 @@ def build_graph():
                 total_chunks = len(chunks)
 
                 # Create graph
-                task_manager.update_task(
-                    task_id,
-                    message="Creating Zep graph...",
-                    progress=10
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=10, message="Creating Zep graph..."
+                    )
                 graph_id = builder.create_graph(name=graph_name)
 
                 # Update project graph_id in a new session (background thread)
@@ -485,27 +507,25 @@ def build_graph():
                         bg_repo.update(bg_project, graph_id=graph_id)
 
                 # Set ontology
-                task_manager.update_task(
-                    task_id,
-                    message="Setting ontology definition...",
-                    progress=15
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=15, message="Setting ontology definition..."
+                    )
                 builder.set_ontology(graph_id, ontology)
 
                 # Add text (progress_callback signature is (msg, progress_ratio))
                 def add_progress_callback(msg, progress_ratio):
                     progress = 15 + int(progress_ratio * 40)  # 15% - 55%
-                    task_manager.update_task(
-                        task_id,
-                        message=msg,
-                        progress=progress
-                    )
+                    with get_db() as s:
+                        TaskRepository(s).update_progress(
+                            task_id, progress=progress, message=msg
+                        )
 
-                task_manager.update_task(
-                    task_id,
-                    message=f"Adding {total_chunks} text chunks...",
-                    progress=15
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=15,
+                        message=f"Adding {total_chunks} text chunks..."
+                    )
 
                 episode_uuids = builder.add_text_batches(
                     graph_id,
@@ -515,28 +535,26 @@ def build_graph():
                 )
 
                 # Wait for Zep processing to complete (query processed status for each episode)
-                task_manager.update_task(
-                    task_id,
-                    message="Waiting for Zep to process data...",
-                    progress=55
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=55,
+                        message="Waiting for Zep to process data..."
+                    )
 
                 def wait_progress_callback(msg, progress_ratio):
                     progress = 55 + int(progress_ratio * 35)  # 55% - 90%
-                    task_manager.update_task(
-                        task_id,
-                        message=msg,
-                        progress=progress
-                    )
+                    with get_db() as s:
+                        TaskRepository(s).update_progress(
+                            task_id, progress=progress, message=msg
+                        )
 
                 builder._wait_for_episodes(episode_uuids, wait_progress_callback)
 
                 # Get graph data
-                task_manager.update_task(
-                    task_id,
-                    message="Retrieving graph data...",
-                    progress=95
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, progress=95, message="Retrieving graph data..."
+                    )
                 graph_data = builder.get_graph_data(graph_id)
 
                 # Update project status
@@ -551,19 +569,14 @@ def build_graph():
                 build_logger.info(f"[{task_id}] Graph building complete: graph_id={graph_id}, nodes={node_count}, edges={edge_count}")
 
                 # Complete
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.COMPLETED,
-                    message="Graph building complete",
-                    progress=100,
-                    result={
+                with get_db() as s:
+                    TaskRepository(s).complete(task_id, result={
                         "project_id": project_id_str,
                         "graph_id": graph_id,
                         "node_count": node_count,
                         "edge_count": edge_count,
                         "chunk_count": total_chunks
-                    }
-                )
+                    })
 
             except Exception as e:
                 # Update project status to failed
@@ -578,12 +591,8 @@ def build_graph():
                         sd["error"] = str(e)
                         bg_repo.update(bg_project, status="failed", step_data=sd)
 
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.FAILED,
-                    message=f"Build failed: {str(e)}",
-                    error=traceback.format_exc()
-                )
+                with get_db() as s:
+                    TaskRepository(s).fail(task_id, error=traceback.format_exc())
 
         # Start background thread
         thread = threading.Thread(target=build_task, daemon=True)
@@ -614,17 +623,20 @@ def get_task(task_id: str):
     """
     Query task status
     """
-    task = TaskManager().get_task(task_id)
+    with get_db() as session:
+        task_repo = TaskRepository(session)
+        task = task_repo.get_by_id(task_id)
+        if not task:
+            return jsonify({
+                "success": False,
+                "error": f"Task not found: {task_id}"
+            }), 404
 
-    if not task:
-        return jsonify({
-            "success": False,
-            "error": f"Task not found: {task_id}"
-        }), 404
+        task_dict = _task_to_dict(task)
 
     return jsonify({
         "success": True,
-        "data": task.to_dict()
+        "data": task_dict
     })
 
 
@@ -632,14 +644,24 @@ def get_task(task_id: str):
 @require_auth
 def list_tasks():
     """
-    List all tasks
+    List all tasks for the current user
     """
-    tasks = TaskManager().list_tasks()
+    from sqlalchemy import desc
+    with get_db() as session:
+        from ..models.db_models import TaskModel
+        tasks = (
+            session.query(TaskModel)
+            .filter(TaskModel.user_id == g.current_user.id)
+            .order_by(desc(TaskModel.created_at))
+            .limit(100)
+            .all()
+        )
+        data = [_task_to_dict(t) for t in tasks]
 
     return jsonify({
         "success": True,
-        "data": [t.to_dict() for t in tasks],
-        "count": len(tasks)
+        "data": data,
+        "count": len(data)
     })
 
 

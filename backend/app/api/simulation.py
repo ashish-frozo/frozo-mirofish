@@ -5,7 +5,7 @@ Step 2: Zep entity reading & filtering, OASIS simulation preparation & execution
 
 import os
 import traceback
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 
 from . import simulation_bp
 from ..config import Config
@@ -404,7 +404,8 @@ def prepare_simulation():
     """
     import threading
     import os
-    from ..models.task import TaskManager, TaskStatus
+    from ..repositories.task_repo import TaskRepository
+    from ..db import get_db
     from ..config import Config
 
     try:
@@ -492,15 +493,16 @@ def prepare_simulation():
             logger.warning(f"Synchronous entity count fetch failed (will retry in background task): {e}")
             # Failure doesn't affect subsequent flow; background task will re-fetch
 
-        # Create async task
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(
-            task_type="simulation_prepare",
-            metadata={
-                "simulation_id": simulation_id,
-                "project_id": state.project_id
-            }
-        )
+        # Create async task (DB-backed)
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.create(
+                user_id=g.current_user.id,
+                task_type="simulation_prepare",
+                project_id=None,  # simulation_id tracked in metadata
+                metadata={"simulation_id": simulation_id, "project_id": state.project_id},
+            )
+            task_id = str(task.id)
 
         # Update simulation status (includes pre-fetched entity count)
         state.status = SimulationStatus.PREPARING
@@ -509,12 +511,11 @@ def prepare_simulation():
         # Define background task
         def run_prepare():
             try:
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.PROCESSING,
-                    progress=0,
-                    message="Starting simulation environment preparation..."
-                )
+                with get_db() as s:
+                    TaskRepository(s).update_progress(
+                        task_id, status="running", progress=0,
+                        message="Starting simulation environment preparation..."
+                    )
 
                 # Prepare simulation (with progress callback)
                 # Store stage progress details
@@ -574,12 +575,19 @@ def prepare_simulation():
                     else:
                         detailed_message = f"[{stage_index}/{total_stages}] {stage_names.get(stage, stage)}: {message}"
 
-                    task_manager.update_task(
-                        task_id,
-                        progress=current_progress,
-                        message=detailed_message,
-                        progress_detail=progress_detail_data
-                    )
+                    with get_db() as s:
+                        repo = TaskRepository(s)
+                        repo.update_progress(
+                            task_id, progress=current_progress,
+                            message=detailed_message
+                        )
+                        # Store progress_detail in metadata
+                        t = repo.get_by_id(task_id)
+                        if t:
+                            md = dict(t.metadata_ or {})
+                            md["progress_detail"] = progress_detail_data
+                            t.metadata_ = md
+                            s.flush()
 
                 result_state = manager.prepare_simulation(
                     simulation_id=simulation_id,
@@ -592,14 +600,13 @@ def prepare_simulation():
                 )
 
                 # Task complete
-                task_manager.complete_task(
-                    task_id,
-                    result=result_state.to_simple_dict()
-                )
+                with get_db() as s:
+                    TaskRepository(s).complete(task_id, result=result_state.to_simple_dict())
 
             except Exception as e:
                 logger.error(f"Simulation preparation failed: {str(e)}")
-                task_manager.fail_task(task_id, str(e))
+                with get_db() as s:
+                    TaskRepository(s).fail(task_id, error=str(e))
 
                 # Update simulation status to failed
                 state = manager.get_simulation(simulation_id)
@@ -669,7 +676,8 @@ def get_prepare_status():
             }
         }
     """
-    from ..models.task import TaskManager
+    from ..repositories.task_repo import TaskRepository
+    from ..db import get_db
 
     try:
         data = request.get_json() or {}
@@ -712,34 +720,47 @@ def get_prepare_status():
                 "error": "Please provide task_id or simulation_id"
             }), 400
 
-        task_manager = TaskManager()
-        task = task_manager.get_task(task_id)
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.get_by_id(task_id)
 
-        if not task:
-            # Task doesn't exist, but if simulation_id is provided, check if already prepared
-            if simulation_id:
-                is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
-                if is_prepared:
-                    return jsonify({
-                        "success": True,
-                        "data": {
-                            "simulation_id": simulation_id,
-                            "task_id": task_id,
-                            "status": "ready",
-                            "progress": 100,
-                            "message": "Task completed (preparation already exists)",
-                            "already_prepared": True,
-                            "prepare_info": prepare_info
-                        }
-                    })
+            if not task:
+                # Task doesn't exist, but if simulation_id is provided, check if already prepared
+                if simulation_id:
+                    is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
+                    if is_prepared:
+                        return jsonify({
+                            "success": True,
+                            "data": {
+                                "simulation_id": simulation_id,
+                                "task_id": task_id,
+                                "status": "ready",
+                                "progress": 100,
+                                "message": "Task completed (preparation already exists)",
+                                "already_prepared": True,
+                                "prepare_info": prepare_info
+                            }
+                        })
 
-            return jsonify({
-                "success": False,
-                "error": f"Task not found: {task_id}"
-            }), 404
+                return jsonify({
+                    "success": False,
+                    "error": f"Task not found: {task_id}"
+                }), 404
 
-        task_dict = task.to_dict()
-        task_dict["already_prepared"] = False
+            task_dict = {
+                "task_id": str(task.id),
+                "task_type": task.type,
+                "status": task.status,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": None,
+                "progress": task.progress,
+                "message": task.message or "",
+                "progress_detail": task.metadata_.get("progress_detail", {}) if task.metadata_ else {},
+                "result": task.result,
+                "error": task.error,
+                "metadata": task.metadata_ or {},
+            }
+            task_dict["already_prepared"] = False
 
         return jsonify({
             "success": True,
