@@ -16,6 +16,8 @@ from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
 from ..models.project import ProjectManager
 from ..middleware.auth import require_auth
+from ..repositories.simulation_repo import SimulationRepository
+from ..db import get_db
 
 logger = get_logger('mirofish.api.simulation')
 
@@ -219,6 +221,17 @@ def create_simulation():
                 "error": "Project graph has not been built yet. Please call /api/graph/build first."
             }), 400
 
+        # --- DB-backed creation ---
+        with get_db() as session:
+            repo = SimulationRepository(session)
+            sim = repo.create(
+                project_id=project.id,
+                enable_twitter=data.get('enable_twitter', True),
+                enable_reddit=data.get('enable_reddit', True),
+            )
+            sim_id = str(sim.id)
+
+        # Also create via legacy file-based manager so that prepare/start still work
         manager = SimulationManager()
         state = manager.create_simulation(
             project_id=project_id,
@@ -227,9 +240,13 @@ def create_simulation():
             enable_reddit=data.get('enable_reddit', True),
         )
 
+        # Store the DB id in the state response for callers that need it
+        result = state.to_dict()
+        result["db_id"] = sim_id
+
         return jsonify({
             "success": True,
-            "data": state.to_dict()
+            "data": result
         })
 
     except Exception as e:
@@ -780,6 +797,16 @@ def get_prepare_status():
 def get_simulation(simulation_id: str):
     """Get simulation status"""
     try:
+        # Try DB first via legacy simulation_id string
+        db_sim = None
+        try:
+            with get_db() as session:
+                repo = SimulationRepository(session)
+                db_sim = repo.get_by_simulation_id(simulation_id)
+        except Exception:
+            pass  # DB lookup is best-effort during migration
+
+        # Fall back to file-based manager (still the source of truth for now)
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
 
@@ -794,6 +821,10 @@ def get_simulation(simulation_id: str):
         # If simulation is ready, attach run instructions
         if state.status == SimulationStatus.READY:
             result["run_instructions"] = manager.get_run_instructions(simulation_id)
+
+        # Attach DB id if available
+        if db_sim:
+            result["db_id"] = str(db_sim.id)
 
         return jsonify({
             "success": True,
@@ -821,8 +852,20 @@ def list_simulations():
     try:
         project_id = request.args.get('project_id')
 
+        # Still use file-based manager as source of truth during migration
         manager = SimulationManager()
         simulations = manager.list_simulations(project_id=project_id)
+
+        # Also try to fetch from DB for any DB-only simulations
+        db_sim_ids = set()
+        try:
+            with get_db() as session:
+                repo = SimulationRepository(session)
+                if project_id:
+                    db_sims = repo.get_by_project(project_id)
+                    db_sim_ids = {s.simulation_id for s in db_sims if s.simulation_id}
+        except Exception:
+            pass  # DB lookup is best-effort
 
         return jsonify({
             "success": True,
@@ -1022,10 +1065,44 @@ def get_simulation_profiles(simulation_id: str):
 
     Query parameters:
         platform: Platform type (reddit/twitter, default reddit)
+        source: Data source preference (db/file, default file during migration)
     """
     try:
         platform = request.args.get('platform', 'reddit')
+        source = request.args.get('source', 'file')
 
+        # Try DB source if requested
+        if source == 'db':
+            try:
+                with get_db() as session:
+                    repo = SimulationRepository(session)
+                    db_sim = repo.get_by_simulation_id(simulation_id)
+                    if db_sim:
+                        db_profiles = repo.get_profiles(db_sim.id)
+                        profiles = [
+                            {
+                                "agent_index": p.agent_index,
+                                "name": p.name,
+                                "role": p.role,
+                                "bio": p.bio,
+                                "personality": p.personality,
+                                "profile_data": p.profile_data,
+                            }
+                            for p in db_profiles
+                        ]
+                        return jsonify({
+                            "success": True,
+                            "data": {
+                                "platform": platform,
+                                "count": len(profiles),
+                                "profiles": profiles,
+                                "source": "db"
+                            }
+                        })
+            except Exception as e:
+                logger.warning(f"DB profile lookup failed, falling back to file: {e}")
+
+        # Fall back to file-based manager
         manager = SimulationManager()
         profiles = manager.get_profiles(simulation_id, platform=platform)
 
@@ -1034,7 +1111,8 @@ def get_simulation_profiles(simulation_id: str):
             "data": {
                 "platform": platform,
                 "count": len(profiles),
-                "profiles": profiles
+                "profiles": profiles,
+                "source": "file"
             }
         })
 
@@ -1709,12 +1787,22 @@ def stop_simulation():
 
         run_state = SimulationRunner.stop_simulation(simulation_id)
 
-        # Update simulation status
+        # Update simulation status (file-based)
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
         if state:
             state.status = SimulationStatus.PAUSED
             manager._save_simulation_state(state)
+
+        # Also update DB
+        try:
+            with get_db() as session:
+                repo = SimulationRepository(session)
+                db_sim = repo.get_by_simulation_id(simulation_id)
+                if db_sim:
+                    repo.update(db_sim.id, status="paused")
+        except Exception as e:
+            logger.warning(f"DB update for stop_simulation failed: {e}")
 
         return jsonify({
             "success": True,
@@ -2738,12 +2826,23 @@ def close_simulation_env():
             timeout=timeout
         )
 
-        # Update simulation status
+        # Update simulation status (file-based)
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
         if state:
             state.status = SimulationStatus.COMPLETED
             manager._save_simulation_state(state)
+
+        # Also update DB
+        try:
+            from datetime import datetime, timezone
+            with get_db() as session:
+                repo = SimulationRepository(session)
+                db_sim = repo.get_by_simulation_id(simulation_id)
+                if db_sim:
+                    repo.update(db_sim.id, status="completed", completed_at=datetime.now(timezone.utc))
+        except Exception as e:
+            logger.warning(f"DB update for close_simulation_env failed: {e}")
 
         return jsonify({
             "success": result.get("success", False),
