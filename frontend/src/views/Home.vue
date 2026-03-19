@@ -207,11 +207,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import { useAuthStore } from '../store/auth'
 
 const router = useRouter()
+const auth = useAuthStore()
+
+onMounted(() => {
+  if (auth.isAuthenticated) {
+    router.replace('/dashboard')
+  }
+})
 
 // Form data
 const formData = ref({
