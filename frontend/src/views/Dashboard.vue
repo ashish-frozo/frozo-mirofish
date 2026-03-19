@@ -42,10 +42,33 @@
       <section class="projects-section">
         <div class="section-header">
           <h2 class="section-title">Your Projects</h2>
+          <button class="refresh-btn" @click="fetchProjects" :disabled="loading" aria-label="Refresh projects">
+            <svg
+              class="refresh-icon"
+              :class="{ spinning: loading }"
+              width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            >
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading && projects.length === 0" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p class="loading-text">Loading projects...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-text">{{ error }}</p>
+          <button class="empty-cta" @click="fetchProjects">Try Again</button>
         </div>
 
         <!-- Empty State -->
-        <div v-if="projects.length === 0" class="empty-state">
+        <div v-else-if="projects.length === 0" class="empty-state">
           <div class="empty-icon">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
               <rect x="6" y="10" width="36" height="28" rx="4" stroke="#4a4a6a" stroke-width="2" fill="none"/>
@@ -63,18 +86,18 @@
           </button>
         </div>
 
-        <!-- Project Cards Grid (for future use) -->
+        <!-- Project Cards Grid -->
         <div v-else class="projects-grid">
           <div
             v-for="project in projects"
-            :key="project.id"
+            :key="project.project_id"
             class="project-card"
           >
             <div class="card-header">
-              <h3 class="card-title">{{ project.name }}</h3>
-              <span class="status-badge" :class="'status-' + project.status">
+              <h3 class="card-title">{{ project.name || project.simulation_requirement || 'Untitled Project' }}</h3>
+              <span class="status-badge" :class="'status-' + getStatusCategory(project.status)">
                 <span class="status-dot"></span>
-                {{ project.status }}
+                {{ getStepInfo(project.status).label }}
               </span>
             </div>
             <div class="card-body">
@@ -83,19 +106,29 @@
                   v-for="step in 5"
                   :key="step"
                   class="step-pip"
-                  :class="{ active: step <= project.currentStep, current: step === project.currentStep }"
+                  :class="{
+                    active: step <= getStepInfo(project.status).step,
+                    current: step === getStepInfo(project.status).step
+                  }"
                 >
                   {{ step }}
                 </div>
               </div>
-              <div class="card-date">{{ formatDate(project.createdAt) }}</div>
+              <div class="card-date">{{ formatDate(project.created_at) }}</div>
             </div>
             <div class="card-footer">
               <button
                 class="resume-btn"
-                @click="router.push(`/process/${project.id}`)"
+                @click="router.push(`/process/${project.project_id}`)"
               >
                 Resume
+              </button>
+              <button
+                class="delete-btn"
+                @click="confirmDelete(project)"
+                :disabled="deleting === project.project_id"
+              >
+                {{ deleting === project.project_id ? 'Deleting...' : 'Delete' }}
               </button>
             </div>
           </div>
@@ -106,15 +139,70 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
+import { listProjects, deleteProject } from '../api/projects'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-// Projects list - empty for now, will be populated when API is available
 const projects = ref([])
+const loading = ref(false)
+const error = ref(null)
+const deleting = ref(null)
+
+const STATUS_MAP = {
+  created:             { step: 1, label: 'Created' },
+  ontology_generated:  { step: 1, label: 'Ontology Ready' },
+  graph_building:      { step: 1, label: 'Building Graph' },
+  graph_completed:     { step: 1, label: 'Graph Complete' },
+  env_setup:           { step: 2, label: 'Setting Up' },
+  simulating:          { step: 3, label: 'Simulating' },
+  reporting:           { step: 4, label: 'Generating Report' },
+  interacting:         { step: 5, label: 'Interactive' },
+  completed:           { step: 5, label: 'Completed' },
+  failed:              { step: 0, label: 'Failed' },
+}
+
+function getStepInfo(status) {
+  return STATUS_MAP[status] || { step: 1, label: status || 'Unknown' }
+}
+
+function getStatusCategory(status) {
+  if (status === 'failed') return 'failed'
+  if (status === 'completed') return 'completed'
+  if (['graph_building', 'env_setup', 'simulating', 'reporting'].includes(status)) return 'running'
+  return 'created'
+}
+
+async function fetchProjects() {
+  loading.value = true
+  error.value = null
+  try {
+    const res = await listProjects()
+    projects.value = res.data || []
+  } catch (err) {
+    error.value = err.message || 'Failed to load projects'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function confirmDelete(project) {
+  const name = project.name || project.simulation_requirement || 'this project'
+  if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
+
+  deleting.value = project.project_id
+  try {
+    await deleteProject(project.project_id)
+    projects.value = projects.value.filter(p => p.project_id !== project.project_id)
+  } catch (err) {
+    alert('Failed to delete project: ' + (err.message || 'Unknown error'))
+  } finally {
+    deleting.value = null
+  }
+}
 
 const trialBadgeClass = computed(() => {
   const days = auth.trialDaysLeft
@@ -137,6 +225,10 @@ async function handleLogout() {
   await auth.logoutAction()
   router.push('/login')
 }
+
+onMounted(() => {
+  fetchProjects()
+})
 </script>
 
 <style scoped>
@@ -332,6 +424,9 @@ async function handleLogout() {
 
 .section-header {
   margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .section-title {
@@ -339,6 +434,90 @@ async function handleLogout() {
   font-weight: 600;
   color: #f0f0f0;
   margin: 0;
+}
+
+/* Refresh Button */
+.refresh-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #9393b0;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e0e0f0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  transition: transform 0.3s ease;
+}
+
+.refresh-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Loading State */
+.loading-state {
+  background: #12122a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 64px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(74, 124, 255, 0.15);
+  border-top-color: #4a7cff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+.loading-text {
+  font-size: 0.95rem;
+  color: #9393b0;
+  margin: 0;
+}
+
+/* Error State */
+.error-state {
+  background: #12122a;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  padding: 48px 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.error-text {
+  font-size: 0.95rem;
+  color: #f87171;
+  margin: 0 0 20px 0;
 }
 
 /* Empty State */
@@ -539,6 +718,9 @@ async function handleLogout() {
 .card-footer {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .resume-btn {
@@ -557,6 +739,29 @@ async function handleLogout() {
 .resume-btn:hover {
   background: rgba(74, 124, 255, 0.08);
   border-color: #4a7cff;
+}
+
+.delete-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: #f87171;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Responsive */
