@@ -5,12 +5,31 @@ import SimulationView from '../views/SimulationView.vue'
 import SimulationRunView from '../views/SimulationRunView.vue'
 import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
+import { useAuthStore } from '../store/auth'
 
 const routes = [
   {
     path: '/',
     name: 'Home',
-    component: Home
+    component: Home,
+    meta: { public: true }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/Login.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/signup',
+    name: 'Signup',
+    component: () => import('../views/Signup.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('../views/Dashboard.vue')
   },
   {
     path: '/process/:projectId',
@@ -47,6 +66,34 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(async (to, from, next) => {
+  const auth = useAuthStore()
+
+  // Public routes don't need auth
+  if (to.meta.public) {
+    // If authenticated and going to login/signup, redirect to dashboard
+    if (auth.isAuthenticated && (to.name === 'Login' || to.name === 'Signup')) {
+      return next('/dashboard')
+    }
+    return next()
+  }
+
+  // Protected routes need auth
+  if (!auth.isAuthenticated) {
+    return next('/login')
+  }
+
+  // If we have a token but no user data, fetch it
+  if (!auth.user) {
+    await auth.fetchUser()
+    if (!auth.isAuthenticated) {
+      return next('/login')
+    }
+  }
+
+  next()
 })
 
 export default router
