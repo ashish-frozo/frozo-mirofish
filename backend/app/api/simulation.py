@@ -14,9 +14,9 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
-from ..models.project import ProjectManager
 from ..middleware.auth import require_auth
 from ..repositories.simulation_repo import SimulationRepository
+from ..repositories.project_repo import ProjectRepository
 from ..db import get_db
 
 logger = get_logger('mirofish.api.simulation')
@@ -207,22 +207,23 @@ def create_simulation():
                 "error": "Please provide project_id"
             }), 400
 
-        project = ProjectManager.get_project(project_id)
-        if not project:
-            return jsonify({
-                "success": False,
-                "error": f"Project not found: {project_id}"
-            }), 404
-
-        graph_id = data.get('graph_id') or project.graph_id
-        if not graph_id:
-            return jsonify({
-                "success": False,
-                "error": "Project graph has not been built yet. Please call /api/graph/build first."
-            }), 400
-
-        # --- DB-backed creation ---
         with get_db() as session:
+            project_repo = ProjectRepository(session)
+            project = project_repo.get_by_id(project_id)
+            if not project:
+                return jsonify({
+                    "success": False,
+                    "error": f"Project not found: {project_id}"
+                }), 404
+
+            graph_id = data.get('graph_id') or project.graph_id
+            if not graph_id:
+                return jsonify({
+                    "success": False,
+                    "error": "Project graph has not been built yet. Please call /api/graph/build first."
+                }), 400
+
+            # --- DB-backed creation ---
             repo = SimulationRepository(session)
             sim = repo.create(
                 project_id=project.id,
@@ -469,23 +470,23 @@ def prepare_simulation():
                 logger.info(f"Simulation {simulation_id} not prepared, starting preparation task")
 
         # Get required info from project
-        project = ProjectManager.get_project(state.project_id)
-        if not project:
-            return jsonify({
-                "success": False,
-                "error": f"Project not found: {state.project_id}"
-            }), 404
+        with get_db() as session:
+            project_repo = ProjectRepository(session)
+            project = project_repo.get_by_id(state.project_id)
+            if not project:
+                return jsonify({
+                    "success": False,
+                    "error": f"Project not found: {state.project_id}"
+                }), 404
 
-        # Get simulation requirement
-        simulation_requirement = project.simulation_requirement or ""
+            simulation_requirement = project.simulation_requirement or ""
+            document_text = project.extracted_text or ""
+
         if not simulation_requirement:
             return jsonify({
                 "success": False,
                 "error": "Project is missing simulation requirement description (simulation_requirement)"
             }), 400
-
-        # Get document text
-        document_text = ProjectManager.get_extracted_text(state.project_id) or ""
 
         entity_types_list = data.get('entity_types')
         use_llm_for_profiles = data.get('use_llm_for_profiles', True)
@@ -1018,14 +1019,16 @@ def get_simulation_history():
                 sim_dict["total_rounds"] = recommended_rounds
 
             # Get associated project's file list (max 3)
-            project = ProjectManager.get_project(sim.project_id)
-            if project and hasattr(project, 'files') and project.files:
-                sim_dict["files"] = [
-                    {"filename": f.get("filename", "Unknown file")}
-                    for f in project.files[:3]
-                ]
-            else:
-                sim_dict["files"] = []
+            with get_db() as proj_session:
+                project_repo = ProjectRepository(proj_session)
+                project = project_repo.get_by_id(sim.project_id)
+                if project and project.seed_files:
+                    sim_dict["files"] = [
+                        {"filename": f.get("filename", "Unknown file")}
+                        for f in project.seed_files[:3]
+                    ]
+                else:
+                    sim_dict["files"] = []
 
             # Get associated report_id (find the latest report for this simulation)
             sim_dict["report_id"] = _get_report_id_for_simulation(sim.simulation_id)
@@ -1701,9 +1704,11 @@ def start_simulation():
             graph_id = state.graph_id
             if not graph_id:
                 # Try to get from project
-                project = ProjectManager.get_project(state.project_id)
-                if project:
-                    graph_id = project.graph_id
+                with get_db() as session:
+                    project_repo = ProjectRepository(session)
+                    project = project_repo.get_by_id(state.project_id)
+                    if project:
+                        graph_id = project.graph_id
 
             if not graph_id:
                 return jsonify({
