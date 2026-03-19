@@ -1417,20 +1417,21 @@ class ReportAgent:
 
                 # Only execute the first tool call
                 call = tool_calls[0]
+                tool_name = call.get("name") or call.get("tool") or "unknown"
                 if len(tool_calls) > 1:
-                    logger.info(f"LLM attempted to call {len(tool_calls)} tools, only executing the first: {call['name']}")
+                    logger.info(f"LLM attempted to call {len(tool_calls)} tools, only executing the first: {tool_name}")
 
                 if self.report_logger:
                     self.report_logger.log_tool_call(
                         section_title=section.title,
                         section_index=section_index,
-                        tool_name=call["name"],
+                        tool_name=tool_name,
                         parameters=call.get("parameters", {}),
                         iteration=iteration + 1
                     )
 
                 result = self._execute_tool(
-                    call["name"],
+                    tool_name,
                     call.get("parameters", {}),
                     report_context=report_context
                 )
@@ -1439,13 +1440,13 @@ class ReportAgent:
                     self.report_logger.log_tool_result(
                         section_title=section.title,
                         section_index=section_index,
-                        tool_name=call["name"],
+                        tool_name=tool_name,
                         result=result,
                         iteration=iteration + 1
                     )
 
                 tool_calls_count += 1
-                used_tools.add(call['name'])
+                used_tools.add(tool_name)
 
                 # Build unused tools hint
                 unused_tools = all_tools - used_tools
@@ -1457,7 +1458,7 @@ class ReportAgent:
                 messages.append({
                     "role": "user",
                     "content": REACT_OBSERVATION_TEMPLATE.format(
-                        tool_name=call["name"],
+                        tool_name=tool_name,
                         result=result,
                         tool_calls_count=tool_calls_count,
                         max_tool_calls=self.MAX_TOOL_CALLS_PER_SECTION,
@@ -1848,9 +1849,10 @@ class ReportAgent:
             for call in tool_calls[:1]:  # Execute at most 1 tool call per round
                 if len(tool_calls_made) >= self.MAX_TOOL_CALLS_PER_CHAT:
                     break
-                result = self._execute_tool(call["name"], call.get("parameters", {}))
+                chat_tool_name = call.get("name") or call.get("tool") or "unknown"
+                result = self._execute_tool(chat_tool_name, call.get("parameters", {}))
                 tool_results.append({
-                    "tool": call["name"],
+                    "tool": chat_tool_name,
                     "result": result[:1500]  # Limit result length
                 })
                 tool_calls_made.append(call)
