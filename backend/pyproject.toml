@@ -46,6 +46,10 @@ dependencies = [
 
     # Billing
     "dodopayments>=1.0",
+
+    # Knowledge Graph (replaces Zep Cloud)
+    "graphiti-core>=0.5",
+    "neo4j>=5.0",
 ]
 
 [project.optional-dependencies]
