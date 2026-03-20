@@ -264,7 +264,7 @@ class GraphitiClient:
                 entity_type=(node.get("labels") or [""])[0] if node.get("labels") else "",
                 summary=node.get("summary", ""),
                 created_at=_safe_str(node.get("created_at")),
-                attributes={k: _safe_str(v) for k, v in dict(node).items() if k not in ('name_embedding',)},
+                attributes={k: _safe_str(v) for k, v in dict(node).items() if 'embedding' not in k},
             )
 
     def get_nodes_by_graph(self, graph_id: str, limit: int = 100, cursor: str = None) -> list:
@@ -328,7 +328,7 @@ class GraphitiClient:
                     created_at=_safe_str(rel.get("created_at")),
                     valid_at=_safe_str(rel.get("valid_at")),
                     invalid_at=_safe_str(rel.get("invalid_at")),
-                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if k not in ('fact_embedding',)},
+                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if 'embedding' not in k},
                 ))
             return edges
 
@@ -351,7 +351,7 @@ class GraphitiClient:
                     relation_type=rel.type if hasattr(rel, 'type') else rel.get("name", ""),
                     fact=rel.get("fact", ""),
                     created_at=_safe_str(rel.get("created_at")),
-                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if k not in ('fact_embedding',)},
+                    attributes={k: _safe_str(v) for k, v in dict(rel).items() if 'embedding' not in k},
                 ))
             return edges
 
