@@ -268,33 +268,45 @@ class GraphBuilderService:
         for node in nodes:
             node_map[node.uuid] = node.name or ""
 
+        def _s(v):
+            """Convert any value to JSON-safe type."""
+            if v is None:
+                return None
+            if isinstance(v, (str, int, float, bool)):
+                return v
+            if isinstance(v, dict):
+                return {k: _s(val) for k, val in v.items()}
+            if isinstance(v, list):
+                return [_s(item) for item in v]
+            return str(v)
+
         nodes_data = []
         for node in nodes:
             nodes_data.append({
-                "uuid": node.uuid,
-                "name": node.name,
+                "uuid": str(node.uuid) if node.uuid else "",
+                "name": node.name or "",
                 "labels": [node.entity_type] if node.entity_type else [],
                 "summary": node.summary or "",
-                "attributes": node.attributes or {},
-                "created_at": node.created_at or None,
+                "attributes": _s(node.attributes) or {},
+                "created_at": _s(node.created_at),
             })
 
         edges_data = []
         for edge in edges:
             edges_data.append({
-                "uuid": edge.uuid,
+                "uuid": str(edge.uuid) if edge.uuid else "",
                 "name": edge.relation_type or "",
                 "fact": edge.fact or "",
                 "fact_type": edge.relation_type or "",
-                "source_node_uuid": edge.source_node_uuid,
-                "target_node_uuid": edge.target_node_uuid,
+                "source_node_uuid": str(edge.source_node_uuid) if edge.source_node_uuid else "",
+                "target_node_uuid": str(edge.target_node_uuid) if edge.target_node_uuid else "",
                 "source_node_name": node_map.get(edge.source_node_uuid, ""),
                 "target_node_name": node_map.get(edge.target_node_uuid, ""),
-                "attributes": edge.attributes or {},
-                "created_at": edge.created_at or None,
-                "valid_at": edge.valid_at or None,
-                "invalid_at": edge.invalid_at or None,
-                "expired_at": edge.expired_at or None,
+                "attributes": _s(edge.attributes) or {},
+                "created_at": _s(edge.created_at),
+                "valid_at": _s(edge.valid_at),
+                "invalid_at": _s(edge.invalid_at),
+                "expired_at": _s(edge.expired_at),
                 "episodes": [],
             })
 
