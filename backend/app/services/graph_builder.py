@@ -263,6 +263,15 @@ class GraphBuilderService:
         nodes = self.graphiti.get_nodes_by_graph(graph_id, limit=2000)
         edges = self.graphiti.get_edges_by_graph(graph_id, limit=5000)
 
+        # Build set of node UUIDs that have at least one edge (filter orphans)
+        connected_uuids = set()
+        for edge in edges:
+            connected_uuids.add(edge.source_node_uuid)
+            connected_uuids.add(edge.target_node_uuid)
+
+        # Only keep connected nodes
+        nodes = [n for n in nodes if n.uuid in connected_uuids]
+
         # Create node mapping for getting node names
         node_map = {}
         for node in nodes:
