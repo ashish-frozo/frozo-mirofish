@@ -416,17 +416,22 @@ function handleProjectAction(project) {
   const status = project.status
   const projectId = project.project_id
   const reportId = project.report_id
-  const simulationId = project.simulation_id
+  const predictionTaskId = project.prediction_task_id
 
-  if ((status === 'completed' || status === 'interacting') && reportId) {
-    router.push(`/workspace/${projectId}`)
-  } else if (status === 'reporting' && reportId) {
-    router.push(`/report/${reportId}`)
-  } else if ((status === 'simulating') && simulationId) {
-    router.push(`/simulation/${simulationId}/start`)
-  } else {
-    router.push(`/process/${projectId}`)
+  // If there's an active prediction task and project isn't completed, go to progress view
+  if (predictionTaskId && status !== 'completed' && status !== 'interacting') {
+    router.push(`/predict/${predictionTaskId}`)
+    return
   }
+
+  // Completed predictions go to workspace
+  if ((status === 'completed' || status === 'interacting') && projectId) {
+    router.push(`/workspace/${projectId}`)
+    return
+  }
+
+  // Fallback to workspace if we have a project ID
+  router.push(`/workspace/${projectId}`)
 }
 
 async function handleLogout() {

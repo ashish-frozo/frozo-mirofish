@@ -187,6 +187,12 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
                 simulation_requirement=simulation_requirement,
             )
             project.ontology = ontology if isinstance(ontology, dict) else {"raw": str(ontology)}
+            # Save prediction task_id so dashboard can route back to progress view
+            step_data = dict(project.step_data or {})
+            step_data["prediction_task_id"] = task_id
+            project.step_data = step_data
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(project, "step_data")
             project.extracted_text = all_text
             project.status = "ontology_generated"
             session.flush()
