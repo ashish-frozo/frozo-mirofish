@@ -104,7 +104,7 @@ def get_prediction_status(task_id: str):
                     "message": task.message,
                     "stage": metadata.get("stage", ""),
                     "stages": metadata.get("stages", {}),
-                    "result": task.result,
+                    "result": task.result or metadata.get("result_preview", {}),
                     "error": task.error,
                 }
             })
@@ -131,21 +131,27 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
     Background thread: orchestrates all 5 prediction steps.
     Updates task progress at each stage.
     """
-    def update(stage: str, progress: int, message: str, stages: dict = None):
+    def update(stage: str, progress: int, message: str, stages: dict = None, result_preview: dict = None):
         try:
+            from sqlalchemy.orm.attributes import flag_modified
             with get_db() as session:
                 task_repo = TaskRepository(session)
                 task = task_repo.get_by_id(task_id)
                 if task and task.status == "failed":
                     raise Exception("Cancelled")
-                metadata = task.metadata_ if task else {}
-                metadata["stage"] = stage
-                if stages:
-                    metadata["stages"] = stages
-                task_repo.update_progress(task_id, status="running", progress=progress, message=message)
-                # Also update metadata
                 if task:
-                    task.metadata_ = metadata
+                    # Build new metadata dict (replace, don't mutate in-place)
+                    new_metadata = dict(task.metadata_ or {})
+                    new_metadata["stage"] = stage
+                    if stages:
+                        new_metadata["stages"] = stages
+                    if result_preview:
+                        new_metadata["result_preview"] = result_preview
+                    task.metadata_ = new_metadata
+                    task.status = "running"
+                    task.progress = progress
+                    task.message = message
+                    flag_modified(task, "metadata_")
                     session.flush()
         except Exception as e:
             if "Cancelled" in str(e):
@@ -208,8 +214,9 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         stages["graph_build"] = {"status": "completed", "stats": {
             "nodes": graph_info.node_count,
             "edges": graph_info.edge_count,
+            "graph_id": graph_id,
         }}
-        update("env_setup", 30, "Setting up simulation environment...", stages)
+        update("env_setup", 30, "Setting up simulation environment...", stages, result_preview={"graph_id": graph_id, "project_id": project_id})
 
         # ==================== STEP 2: Simulation Setup ====================
         from ..services.simulation_manager import SimulationManager
