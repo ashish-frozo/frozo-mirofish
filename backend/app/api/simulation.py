@@ -223,6 +223,11 @@ def create_simulation():
             enable_reddit=data.get('enable_reddit', True),
         )
 
+        # Sync the legacy simulation_id back to the DB record
+        with get_db() as session:
+            sim_repo = SimulationRepository(session)
+            sim_repo.update(sim_id, simulation_id=state.simulation_id)
+
         # Store the DB id in the state response for callers that need it
         result = state.to_dict()
         result["db_id"] = sim_id
