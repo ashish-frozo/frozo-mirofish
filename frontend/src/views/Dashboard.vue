@@ -7,13 +7,10 @@
       <router-link to="/pricing" class="upgrade-link">Upgrade Now</router-link>
     </div>
 
-    <!-- Header -->
-    <header class="dashboard-header">
-      <div class="header-left">
-        <div class="brand">AUGUR</div>
-        <h1 class="greeting">Welcome back, {{ auth.user?.name || 'User' }}</h1>
-      </div>
-      <div class="header-right">
+    <!-- Navigation Bar -->
+    <nav class="dashboard-nav">
+      <div class="nav-brand">AUGUR</div>
+      <div class="nav-right">
         <span
           v-if="auth.user?.plan === 'trial' && !auth.isTrialExpired"
           class="trial-badge"
@@ -21,141 +18,168 @@
         >
           Trial: {{ auth.trialDaysLeft }} days left
         </span>
-        <span v-if="auth.currentPlan === 'starter'" style="background: #DBEAFE; color: #1D4ED8; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">Starter Plan</span>
-        <span v-else-if="auth.currentPlan === 'pro'" style="background: #EDE9FE; color: #6D28D9; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;">Pro Plan</span>
-        <button v-if="auth.currentPlan !== 'trial'" @click="handleManageSubscription" style="background: transparent; border: 1px solid #d1d5db; color: #6b7280; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+        <span v-if="auth.currentPlan === 'starter'" class="plan-badge plan-badge--starter">Starter Plan</span>
+        <span v-else-if="auth.currentPlan === 'pro'" class="plan-badge plan-badge--pro">Pro Plan</span>
+        <button
+          v-if="auth.currentPlan !== 'trial'"
+          class="nav-btn"
+          @click="handleManageSubscription"
+        >
           Manage Subscription
         </button>
-        <button class="logout-btn" @click="handleLogout" aria-label="Sign out">
+        <button class="nav-btn nav-btn--logout" @click="handleLogout" aria-label="Sign out">
           Sign Out
         </button>
       </div>
-    </header>
+    </nav>
 
     <!-- Main Content -->
     <main class="dashboard-main">
       <!-- Payment Success Toast -->
-      <div v-if="paymentSuccess" style="background: #059669; color: white; padding: 12px 24px; border-radius: 8px; margin-bottom: 24px; text-align: center; font-weight: 500;">
-        Payment successful! Your plan is now active.
-      </div>
+      <transition name="toast">
+        <div v-if="paymentSuccess" class="payment-toast" role="status">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Payment successful! Your plan is now active.
+        </div>
+      </transition>
 
-      <!-- Upgrade Banner (when trial expired or no active plan) -->
-      <div v-if="auth.isTrialExpired || (!auth.canCreateProjects && auth.isAuthenticated)" style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 24px; margin-bottom: 24px; text-align: center;">
-        <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin-bottom: 8px;">Your trial has expired</h3>
-        <p style="color: #B91C1C; margin-bottom: 16px;">Upgrade to continue creating predictions.</p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
-          <button @click="handleUpgrade('starter')" :disabled="upgrading" style="background: #2563EB; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer;">
-            {{ upgrading ? 'Loading...' : 'Starter — $19/mo' }}
+      <!-- Greeting -->
+      <h1 class="greeting">Welcome back, {{ auth.user?.name || 'User' }}</h1>
+
+      <!-- Upgrade Banner -->
+      <div
+        v-if="auth.isTrialExpired || (!auth.canCreateProjects && auth.isAuthenticated)"
+        class="upgrade-banner"
+      >
+        <h3 class="upgrade-banner__title">Your trial has expired</h3>
+        <p class="upgrade-banner__desc">Upgrade to continue creating predictions.</p>
+        <div class="upgrade-banner__actions">
+          <button class="btn-upgrade" @click="handleUpgrade('starter')" :disabled="upgrading">
+            {{ upgrading ? 'Loading...' : 'Starter -- $19/mo' }}
           </button>
-          <button @click="handleUpgrade('pro')" :disabled="upgrading" style="background: #2563EB; color: white; padding: 10px 24px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer;">
-            {{ upgrading ? 'Loading...' : 'Pro — $49/mo' }}
+          <button class="btn-upgrade" @click="handleUpgrade('pro')" :disabled="upgrading">
+            {{ upgrading ? 'Loading...' : 'Pro -- $49/mo' }}
           </button>
         </div>
       </div>
 
-      <!-- New Prediction CTA -->
-      <section class="cta-section">
-        <button class="new-prediction-btn" @click="router.push('/new')">
-          <span class="btn-plus">+</span>
-          <span class="btn-text">New Prediction</span>
-          <span class="btn-arrow">-></span>
-        </button>
+      <!-- New Prediction CTA Card -->
+      <section class="cta-card" @click="router.push('/new')" role="button" tabindex="0" @keydown.enter="router.push('/new')">
+        <div class="cta-card__left">
+          <span class="cta-card__plus">+</span>
+          <div>
+            <div class="cta-card__title">New Prediction</div>
+            <div class="cta-card__desc">Upload documents and predict the future</div>
+          </div>
+        </div>
+        <svg class="cta-card__arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
       </section>
 
       <!-- Projects Section -->
       <section class="projects-section">
         <div class="section-header">
-          <h2 class="section-title">Your Projects</h2>
-          <button class="refresh-btn" @click="fetchProjects" :disabled="loading" aria-label="Refresh projects">
+          <h2 class="section-title">Your Predictions</h2>
+          <button class="refresh-btn" @click="fetchProjects" :disabled="loading" aria-label="Refresh predictions">
             <svg
               class="refresh-icon"
               :class="{ spinning: loading }"
               width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true"
             >
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
+            Refresh
           </button>
         </div>
 
         <!-- Loading State -->
-        <div v-if="loading && projects.length === 0" class="loading-state">
+        <div v-if="loading && projects.length === 0" class="state-panel">
           <div class="loading-spinner"></div>
-          <p class="loading-text">Loading projects...</p>
+          <p class="state-text">Loading predictions...</p>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="error" class="error-state">
-          <p class="error-text">{{ error }}</p>
-          <button class="empty-cta" @click="fetchProjects">Try Again</button>
+        <div v-else-if="error" class="state-panel state-panel--error">
+          <p class="state-text state-text--error">{{ error }}</p>
+          <button class="btn-ghost" @click="fetchProjects">Try Again</button>
         </div>
 
         <!-- Empty State -->
-        <div v-else-if="projects.length === 0" class="empty-state">
-          <div class="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-              <rect x="6" y="10" width="36" height="28" rx="4" stroke="#4a4a6a" stroke-width="2" fill="none"/>
-              <path d="M6 18h36" stroke="#4a4a6a" stroke-width="2"/>
-              <circle cx="12" cy="14" r="1.5" fill="#4a4a6a"/>
-              <circle cx="17" cy="14" r="1.5" fill="#4a4a6a"/>
-              <circle cx="22" cy="14" r="1.5" fill="#4a4a6a"/>
-              <path d="M18 28h12M21 24h6" stroke="#4a4a6a" stroke-width="2" stroke-linecap="round"/>
+        <div v-else-if="projects.length === 0" class="state-panel">
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+              <rect x="8" y="12" width="40" height="32" rx="6" stroke="var(--border-hover)" stroke-width="2" fill="none"/>
+              <path d="M8 22h40" stroke="var(--border-hover)" stroke-width="2"/>
+              <circle cx="15" cy="17" r="1.5" fill="var(--muted)"/>
+              <circle cx="20" cy="17" r="1.5" fill="var(--muted)"/>
+              <circle cx="25" cy="17" r="1.5" fill="var(--muted)"/>
+              <path d="M22 33h12M25 29h6" stroke="var(--border-hover)" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
-          <p class="empty-title">No projects yet</p>
+          <p class="empty-title">No predictions yet</p>
           <p class="empty-desc">Start your first prediction to see it here.</p>
-          <button class="empty-cta" @click="router.push('/new')">
+          <button class="btn-ghost btn-ghost--primary" @click="router.push('/new')">
             Create Your First Prediction
           </button>
         </div>
 
         <!-- Project Cards Grid -->
         <div v-else class="projects-grid">
-          <div
+          <article
             v-for="project in projects"
             :key="project.project_id"
             class="project-card"
           >
-            <div class="card-header">
-              <h3 class="card-title">{{ project.name || project.simulation_requirement || 'Untitled Project' }}</h3>
-              <span class="status-badge" :class="'status-' + getStatusCategory(project.status)">
-                <span class="status-dot"></span>
+            <div class="project-card__header">
+              <span class="status-badge" :class="'status-badge--' + getStatusCategory(project.status)">
+                <span class="status-badge__dot"></span>
                 {{ getStepInfo(project.status).label }}
               </span>
             </div>
-            <div class="card-body">
-              <div class="step-indicator">
-                <div
-                  v-for="step in 5"
-                  :key="step"
-                  class="step-pip"
-                  :class="{
-                    active: step <= getStepInfo(project.status).step,
-                    current: step === getStepInfo(project.status).step
-                  }"
-                >
-                  {{ step }}
-                </div>
-              </div>
-              <div class="card-date">{{ formatDate(project.created_at) }}</div>
+
+            <h3 class="project-card__title">{{ project.name || project.simulation_requirement || 'Untitled Project' }}</h3>
+
+            <div class="project-card__meta">
+              <span class="project-card__step">Step {{ getStepInfo(project.status).step }}/5</span>
+              <span class="project-card__date">{{ formatDate(project.created_at) }}</span>
             </div>
-            <div class="card-footer">
+
+            <!-- Progress bar -->
+            <div class="progress-bar">
+              <div
+                class="progress-bar__fill"
+                :class="'progress-bar__fill--' + getStatusCategory(project.status)"
+                :style="{ width: (getStepInfo(project.status).step / 5 * 100) + '%' }"
+              ></div>
+            </div>
+
+            <div class="project-card__footer">
               <button
-                class="resume-btn"
+                class="btn-action"
                 @click="router.push(`/process/${project.project_id}`)"
               >
-                Resume
+                {{ getStatusCategory(project.status) === 'completed' ? 'View' : 'Resume' }}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
               </button>
               <button
-                class="delete-btn"
+                class="btn-delete"
                 @click="confirmDelete(project)"
                 :disabled="deleting === project.project_id"
               >
                 {{ deleting === project.project_id ? 'Deleting...' : 'Delete' }}
               </button>
             </div>
-          </div>
+          </article>
         </div>
       </section>
     </main>
@@ -235,9 +259,9 @@ async function confirmDelete(project) {
 const trialBadgeClass = computed(() => {
   const days = auth.trialDaysLeft
   if (days === null) return ''
-  if (days > 7) return 'badge-green'
-  if (days >= 3) return 'badge-yellow'
-  return 'badge-red'
+  if (days > 7) return 'trial-badge--green'
+  if (days >= 3) return 'trial-badge--yellow'
+  return 'trial-badge--red'
 })
 
 function formatDate(dateStr) {
@@ -288,25 +312,26 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── Page Shell ── */
 .dashboard-page {
   min-height: 100vh;
-  background: #0a0a1a;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
-  color: #e0e0f0;
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--text);
 }
 
-/* Trial Expired Banner */
+/* ── Trial Expired Banner ── */
 .trial-expired-banner {
-  background: rgba(239, 68, 68, 0.15);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
-  padding: 12px 40px;
-  font-size: 0.9rem;
+  background: #FEF2F2;
+  border-bottom: 1px solid #FECACA;
+  color: var(--error);
+  padding: 10px 40px;
+  font-size: 0.875rem;
   font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .banner-icon {
@@ -316,200 +341,313 @@ onMounted(async () => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.25);
-  font-size: 0.75rem;
+  background: #FEE2E2;
+  font-size: 0.7rem;
   font-weight: 700;
   flex-shrink: 0;
+  color: var(--error);
 }
 
 .upgrade-link {
-  color: #f87171;
+  color: var(--error);
   text-decoration: underline;
   font-weight: 600;
   margin-left: 4px;
 }
 
 .upgrade-link:hover {
-  color: #fca5a5;
+  color: #DC2626;
 }
 
-/* Header */
-.dashboard-header {
+/* ── Navigation Bar ── */
+.dashboard-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 40px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 16px 40px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-.header-left {
+.nav-brand {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+}
+
+.nav-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 12px;
 }
 
-.brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: 2px;
-  color: #fff;
+/* Trial Badge */
+.trial-badge {
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-body);
 }
 
+.trial-badge--green {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.trial-badge--yellow {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.trial-badge--red {
+  background: #FEF2F2;
+  color: var(--error);
+}
+
+/* Plan Badges */
+.plan-badge {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.plan-badge--starter {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.plan-badge--pro {
+  background: #EDE9FE;
+  color: #6D28D9;
+}
+
+/* Nav Buttons */
+.nav-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.nav-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* ── Main Content ── */
+.dashboard-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 40px;
+}
+
+/* ── Payment Toast ── */
+.payment-toast {
+  background: var(--success);
+  color: white;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity var(--transition-slow), transform var(--transition-slow);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ── Greeting ── */
 .greeting {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: #9393b0;
-  margin: 0;
-  padding-left: 24px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--font-brand);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 32px 0;
+  line-height: 1.3;
 }
 
-.header-right {
+/* ── Upgrade Banner ── */
+.upgrade-banner {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.upgrade-banner__title {
+  font-family: var(--font-brand);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #991B1B;
+  margin: 0 0 6px 0;
+}
+
+.upgrade-banner__desc {
+  color: #B91C1C;
+  font-size: 0.9375rem;
+  margin: 0 0 16px 0;
+}
+
+.upgrade-banner__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-upgrade {
+  background: var(--cta);
+  color: white;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--transition-fast);
+}
+
+.btn-upgrade:hover {
+  background: var(--cta-hover);
+}
+
+.btn-upgrade:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── New Prediction CTA Card ── */
+.cta-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
+  box-shadow: var(--shadow-card);
+}
+
+.cta-card:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary);
+}
+
+.cta-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.cta-card__left {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-/* Trial Badge */
-.trial-badge {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.badge-green {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #4ade80;
-}
-
-.badge-yellow {
-  background: rgba(234, 179, 8, 0.12);
-  border: 1px solid rgba(234, 179, 8, 0.3);
-  color: #facc15;
-}
-
-.badge-red {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
-}
-
-.logout-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 8px 18px;
-  font-size: 0.85rem;
-  color: #9393b0;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
-  font-family: inherit;
-}
-
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #e0e0f0;
-}
-
-/* Main Content */
-.dashboard-main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 48px 40px;
-}
-
-/* CTA Section */
-.cta-section {
-  margin-bottom: 48px;
-}
-
-.new-prediction-btn {
-  width: 100%;
-  background: #4a7cff;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  padding: 22px 32px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
+.cta-card__plus {
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-  font-family: inherit;
-}
-
-.new-prediction-btn:hover {
-  background: #3a6aee;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(74, 124, 255, 0.25);
-}
-
-.new-prediction-btn:active {
-  transform: translateY(0);
-}
-
-.btn-plus {
-  font-size: 1.4rem;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: #EEF2FF;
+  color: var(--primary);
+  font-size: 1.5rem;
   font-weight: 300;
-  line-height: 1;
+  flex-shrink: 0;
 }
 
-.btn-text {
-  flex: 1;
-  text-align: left;
+.cta-card__title {
+  font-family: var(--font-brand);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
 }
 
-.btn-arrow {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1rem;
-  opacity: 0.7;
+.cta-card__desc {
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
-/* Projects Section */
-.projects-section {
-  /* container */
+.cta-card__arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), color var(--transition-fast);
 }
 
+.cta-card:hover .cta-card__arrow {
+  transform: translateX(4px);
+  color: var(--primary);
+}
+
+/* ── Projects Section ── */
 .section-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .section-title {
-  font-size: 1.2rem;
+  font-family: var(--font-brand);
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text);
   margin: 0;
 }
 
 /* Refresh Button */
 .refresh-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: #9393b0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 14px;
+  color: var(--muted);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-family: var(--font-body);
+  font-weight: 500;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
-  color: #e0e0f0;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border-hover);
 }
 
 .refresh-btn:disabled {
@@ -518,7 +656,7 @@ onMounted(async () => {
 }
 
 .refresh-icon {
-  transition: transform 0.3s ease;
+  transition: transform var(--transition-slow);
 }
 
 .refresh-icon.spinning {
@@ -530,327 +668,318 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* Loading State */
-.loading-state {
-  background: #12122a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+/* ── State Panels (Loading / Error / Empty) ── */
+.state-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 64px 32px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-shadow: var(--shadow-card);
+}
+
+.state-panel--error {
+  border-color: #FECACA;
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(74, 124, 255, 0.15);
-  border-top-color: #4a7cff;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 16px;
 }
 
-.loading-text {
-  font-size: 0.95rem;
-  color: #9393b0;
+.state-text {
+  font-size: 0.9375rem;
+  color: var(--muted);
   margin: 0;
 }
 
-/* Error State */
-.error-state {
-  background: #12122a;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 12px;
-  padding: 48px 32px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.error-text {
-  font-size: 0.95rem;
-  color: #f87171;
-  margin: 0 0 20px 0;
+.state-text--error {
+  color: var(--error);
+  margin-bottom: 20px;
 }
 
 /* Empty State */
-.empty-state {
-  background: #12122a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: 64px 32px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .empty-icon {
   margin-bottom: 20px;
-  opacity: 0.6;
 }
 
 .empty-title {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #9393b0;
-  margin: 0 0 8px 0;
+  font-family: var(--font-brand);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px 0;
 }
 
 .empty-desc {
-  font-size: 0.9rem;
-  color: #5a5a7a;
-  margin: 0 0 28px 0;
+  font-size: 0.9375rem;
+  color: var(--muted);
+  margin: 0 0 24px 0;
 }
 
-.empty-cta {
+/* Ghost Buttons */
+.btn-ghost {
   background: transparent;
-  border: 1px solid rgba(74, 124, 255, 0.4);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 10px 24px;
-  font-size: 0.9rem;
-  color: #4a7cff;
+  font-size: 0.9375rem;
+  color: var(--text);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  font-family: var(--font-body);
   font-weight: 500;
 }
 
-.empty-cta:hover {
-  background: rgba(74, 124, 255, 0.08);
-  border-color: #4a7cff;
+.btn-ghost:hover {
+  background: var(--bg);
+  border-color: var(--border-hover);
 }
 
-/* Projects Grid */
+.btn-ghost--primary {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-ghost--primary:hover {
+  background: #EEF2FF;
+  border-color: var(--primary-hover);
+}
+
+/* ── Projects Grid ── */
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
+/* ── Project Card ── */
 .project-card {
-  background: #12122a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  gap: 12px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
 }
 
 .project-card:hover {
-  border-color: rgba(74, 124, 255, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-elevated);
+  border-color: var(--border-hover);
 }
 
-.card-header {
+.project-card__header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  justify-content: flex-start;
 }
 
-.card-title {
+.project-card__title {
+  font-family: var(--font-brand);
   font-size: 1rem;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text);
   margin: 0;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Status Badges */
+.project-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.project-card__step {
+  font-weight: 500;
+}
+
+/* ── Status Badges ── */
 .status-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: capitalize;
   white-space: nowrap;
-  font-family: 'JetBrains Mono', monospace;
 }
 
-.status-dot {
+.status-badge__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.status-created {
-  background: rgba(148, 163, 184, 0.1);
-  color: #94a3b8;
+.status-badge--created {
+  background: #F8FAFC;
+  color: var(--muted);
 }
 
-.status-created .status-dot {
-  background: #94a3b8;
+.status-badge--created .status-badge__dot {
+  background: var(--muted);
 }
 
-.status-running {
-  background: rgba(74, 124, 255, 0.1);
-  color: #4a7cff;
+.status-badge--running {
+  background: #EFF6FF;
+  color: var(--cta);
 }
 
-.status-running .status-dot {
-  background: #4a7cff;
+.status-badge--running .status-badge__dot {
+  background: var(--cta);
   animation: pulse-dot 1.5s infinite;
 }
 
-.status-completed {
-  background: rgba(34, 197, 94, 0.1);
-  color: #4ade80;
+.status-badge--completed {
+  background: #ECFDF5;
+  color: #059669;
 }
 
-.status-completed .status-dot {
-  background: #4ade80;
+.status-badge--completed .status-badge__dot {
+  background: var(--success);
 }
 
-.status-failed {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
+.status-badge--failed {
+  background: #FEF2F2;
+  color: #DC2626;
 }
 
-.status-failed .status-dot {
-  background: #f87171;
+.status-badge--failed .status-badge__dot {
+  background: var(--error);
 }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.3; }
 }
 
-/* Step Indicator */
-.card-body {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* ── Progress Bar ── */
+.progress-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
 }
 
-.step-indicator {
-  display: flex;
-  gap: 4px;
+.progress-bar__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--transition-slow);
 }
 
-.step-pip {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
-  background: rgba(255, 255, 255, 0.04);
-  color: #4a4a6a;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.progress-bar__fill--created {
+  background: var(--muted);
 }
 
-.step-pip.active {
-  background: rgba(74, 124, 255, 0.15);
-  color: #4a7cff;
-  border-color: rgba(74, 124, 255, 0.3);
+.progress-bar__fill--running {
+  background: var(--cta);
 }
 
-.step-pip.current {
-  background: #4a7cff;
-  color: #fff;
-  border-color: #4a7cff;
+.progress-bar__fill--completed {
+  background: var(--success);
 }
 
-.card-date {
-  font-size: 0.78rem;
-  color: #5a5a7a;
-  font-family: 'JetBrains Mono', monospace;
+.progress-bar__fill--failed {
+  background: var(--error);
 }
 
-/* Card Footer */
-.card-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 16px;
+/* ── Card Footer ── */
+.project-card__footer {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 2px;
 }
 
-.resume-btn {
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
-  border: 1px solid rgba(74, 124, 255, 0.3);
-  border-radius: 8px;
-  padding: 8px 20px;
-  font-size: 0.85rem;
-  color: #4a7cff;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 7px 18px;
+  font-size: 0.8125rem;
+  color: var(--primary);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  font-family: inherit;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.btn-action:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-delete {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 7px 14px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  font-family: var(--font-body);
   font-weight: 500;
 }
 
-.resume-btn:hover {
-  background: rgba(74, 124, 255, 0.08);
-  border-color: #4a7cff;
+.btn-delete:hover:not(:disabled) {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: var(--error);
 }
 
-.delete-btn {
-  background: transparent;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  color: #f87171;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  font-family: inherit;
-  font-weight: 500;
-}
-
-.delete-btn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.4);
-}
-
-.delete-btn:disabled {
+.btn-delete:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Responsive */
+/* ── Responsive ── */
 @media (max-width: 768px) {
-  .dashboard-header {
+  .dashboard-nav {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
-    padding: 20px 24px;
+    gap: 12px;
+    padding: 16px 20px;
   }
 
-  .header-left {
-    flex-direction: column;
-    align-items: flex-start;
+  .nav-right {
+    width: 100%;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
-  .greeting {
-    padding-left: 0;
-    border-left: none;
-  }
-
-  .header-right {
-    width: 100%;
-    justify-content: space-between;
-  }
-
   .dashboard-main {
-    padding: 32px 24px;
+    padding: 32px 20px;
   }
 
-  .new-prediction-btn {
-    padding: 18px 24px;
+  .greeting {
+    font-size: 1.375rem;
+  }
+
+  .cta-card {
+    padding: 20px;
   }
 
   .projects-grid {
@@ -858,9 +987,14 @@ onMounted(async () => {
   }
 
   .trial-expired-banner {
-    padding: 12px 24px;
-    font-size: 0.8rem;
+    padding: 10px 20px;
+    font-size: 0.8125rem;
     flex-wrap: wrap;
+  }
+
+  .upgrade-banner__actions {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>
