@@ -2,7 +2,7 @@
   <div class="prediction-container">
     <!-- Header -->
     <nav class="prediction-nav">
-      <div class="nav-brand" @click="$router.push('/dashboard')">MIROFISH</div>
+      <div class="nav-brand" @click="$router.push('/dashboard')">FROZO</div>
       <div class="nav-status">
         <span class="status-badge" :class="statusClass">{{ statusLabel }}</span>
       </div>
