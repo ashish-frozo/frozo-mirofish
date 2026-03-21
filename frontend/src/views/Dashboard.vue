@@ -7,60 +7,12 @@
       <router-link to="/pricing" class="upgrade-link">Upgrade Now</router-link>
     </div>
 
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <span class="material-symbols-outlined sidebar-brand-icon" style="font-variation-settings: 'FILL' 1;">deployed_code</span>
-        <div>
-          <h2 class="sidebar-brand-name">Augur AI</h2>
-          <p class="sidebar-brand-tagline">Predictive Architect</p>
-        </div>
-      </div>
-
-      <nav class="sidebar-nav">
-        <router-link to="/dashboard" class="sidebar-link sidebar-link--active">
-          <span class="material-symbols-outlined">dashboard</span>
-          <span>Dashboard</span>
-        </router-link>
-        <router-link to="/dashboard" class="sidebar-link">
-          <span class="material-symbols-outlined">hub</span>
-          <span>Knowledge Graph</span>
-        </router-link>
-        <router-link to="/dashboard" class="sidebar-link">
-          <span class="material-symbols-outlined">smart_toy</span>
-          <span>Agents</span>
-        </router-link>
-        <router-link to="/dashboard" class="sidebar-link">
-          <span class="material-symbols-outlined">deployed_code</span>
-          <span>Models</span>
-        </router-link>
-        <router-link to="/dashboard" class="sidebar-link">
-          <span class="material-symbols-outlined">database</span>
-          <span>Datasets</span>
-        </router-link>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="sidebar-user">
-          <div class="sidebar-user-avatar">{{ (auth.user?.name || 'U').charAt(0) }}</div>
-          <div class="sidebar-user-info">
-            <p class="sidebar-user-name">{{ auth.user?.name || 'User' }}</p>
-            <p class="sidebar-user-plan">
-              <span v-if="auth.currentPlan === 'starter'">Starter Plan</span>
-              <span v-else-if="auth.currentPlan === 'pro'">Pro Plan</span>
-              <span v-else-if="auth.user?.plan === 'trial'">Trial</span>
-              <span v-else>Free</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </aside>
-
     <!-- Main Content Canvas -->
     <main class="main-canvas">
       <!-- Top Navigation Bar -->
       <header class="top-bar">
         <div class="top-bar-left">
+          <span class="top-bar-brand">AUGUR</span>
           <div class="search-box">
             <span class="material-symbols-outlined search-icon">search</span>
             <input
@@ -479,7 +431,6 @@ onMounted(async () => {
   background: #f7f9fb;
   font-family: 'Inter', system-ui, sans-serif;
   color: #191c1e;
-  display: flex;
 }
 
 /* ── Sidebar ── */
@@ -651,7 +602,7 @@ onMounted(async () => {
 
 /* ── Main Canvas ── */
 .main-canvas {
-  margin-left: 256px;
+  margin-left: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -677,6 +628,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+.top-bar-brand {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #4F46E5;
+  letter-spacing: 1.5px;
 }
 
 .search-box {
