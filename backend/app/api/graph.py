@@ -49,6 +49,7 @@ def _project_to_dict(project) -> dict:
         "simulation_id": project.step_data.get("simulation_id") if project.step_data else None,
         "report_id": project.step_data.get("report_id") if project.step_data else None,
         "current_step": project.current_step,
+        "rounds": project.step_data.get("rounds") if project.step_data else None,
         "prediction_task_id": project.step_data.get("prediction_task_id") if project.step_data else None,
     }
 

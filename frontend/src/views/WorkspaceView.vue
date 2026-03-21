@@ -334,10 +334,7 @@ const statusDotClass = computed(() => {
 })
 
 const totalRounds = computed(() => {
-  return project.value?.step_data?.rounds ||
-         project.value?.step_data?.num_rounds ||
-         graphData.value?.rounds ||
-         '--'
+  return project.value?.rounds || '--'
 })
 
 function renderMarkdown(md) {

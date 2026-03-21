@@ -258,6 +258,15 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         # ==================== STEP 3: Run Simulation ====================
         from ..services.simulation_runner import SimulationRunner
 
+        # Update project status to simulating
+        with get_db() as session:
+            proj_repo = ProjectRepository(session)
+            project = proj_repo.get_by_id(project_id)
+            if project:
+                project.status = "simulating"
+                project.current_step = 3
+                session.flush()
+
         SimulationRunner.start_simulation(simulation_id)
 
         # Poll for simulation completion
@@ -311,6 +320,15 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         # ==================== STEP 4: Report Generation ====================
         from ..services.report_agent import ReportAgent
 
+        # Update project status to reporting
+        with get_db() as session:
+            proj_repo = ProjectRepository(session)
+            project = proj_repo.get_by_id(project_id)
+            if project:
+                project.status = "reporting"
+                project.current_step = 4
+                session.flush()
+
         report_agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
@@ -359,3 +377,9 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         with get_db() as session:
             task_repo = TaskRepository(session)
             task_repo.fail(task_id, error=str(e))
+    finally:
+        # Clean up temp files
+        import shutil
+        temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
