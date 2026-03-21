@@ -1,0 +1,97 @@
+/* Frozo Design System — CSS Custom Properties */
+
+:root {
+  /* Colors */
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --text: #0F172A;
+  --muted: #64748B;
+  --primary: #4F46E5;
+  --primary-hover: #4338CA;
+  --secondary: #7C3AED;
+  --cta: #2563EB;
+  --cta-hover: #1D4ED8;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --border: #E2E8F0;
+  --border-hover: #CBD5E1;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(79, 70, 229, 0.08);
+  --shadow-elevated: 0 4px 12px rgba(79, 70, 229, 0.12);
+  --shadow-hover: 0 8px 24px rgba(79, 70, 229, 0.16);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-brand: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-code: 'Fira Code', 'JetBrains Mono', monospace;
+
+  /* Transitions */
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 300ms ease-out;
+}
+
+/* Global resets */
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reusable button styles */
+.btn-primary {
+  background: var(--cta);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.btn-primary:hover { background: var(--cta-hover); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+.btn-secondary:hover { border-color: var(--border-hover); }
+
+/* Reusable card styles */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  transition: box-shadow var(--transition-normal);
+}
+.card:hover { box-shadow: var(--shadow-elevated); }
+
+/* Status badges */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 500; }
+.badge-active { background: #ECFDF5; color: #059669; }
+.badge-running { background: #EFF6FF; color: #2563EB; }
+.badge-failed { background: #FEF2F2; color: #DC2626; }
+.badge-completed { background: #F0FDF4; color: #15803D; }
+.badge-pending { background: #F8FAFC; color: #64748B; }

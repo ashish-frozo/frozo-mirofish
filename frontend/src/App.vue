@@ -7,6 +7,8 @@
 </script>
 
 <style>
+@import './assets/globals.css';
+
 /* Global style reset */
 * {
   margin: 0;
