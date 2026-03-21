@@ -1,154 +1,137 @@
 <template>
   <div class="home-page">
-    <!-- Navigation Bar -->
-    <nav class="nav-bar">
-      <div class="nav-inner">
-        <div class="nav-brand">AUGUR</div>
-        <div class="nav-links">
-          <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
-          <router-link to="/login" class="nav-link nav-link--accent">Login</router-link>
-        </div>
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+      <div class="top-nav__brand">AUGUR</div>
+      <div class="top-nav__right">
+        <router-link to="/dashboard" class="top-nav__link">
+          <span class="material-symbols-outlined top-nav__link-icon">arrow_back</span>
+          Back to Dashboard
+        </router-link>
       </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="main-area">
-      <div class="content-card">
-        <!-- Header -->
-        <div class="card-header">
-          <div class="brand-icon">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="url(#icon-grad)" />
-              <path d="M20 10L28 26H12L20 10Z" fill="white" opacity="0.9" />
-              <circle cx="20" cy="26" r="4" fill="white" opacity="0.7" />
-              <defs>
-                <linearGradient id="icon-grad" x1="0" y1="0" x2="40" y2="40">
-                  <stop stop-color="#4F46E5" />
-                  <stop offset="1" stop-color="#7C3AED" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <h1 class="card-title">Start a New Prediction</h1>
-          <p class="card-subtitle">Upload documents and describe your scenario</p>
-        </div>
+    <!-- Main Content Canvas -->
+    <main class="main-content">
+      <div class="content-inner">
+        <!-- Header Section -->
+        <header class="page-header">
+          <h1 class="page-title">Create a New Prediction</h1>
+          <p class="page-subtitle">Upload your documents and describe what you want to predict.</p>
+        </header>
 
-        <!-- Upload Zone -->
-        <div
-          class="upload-zone"
-          :class="{ 'upload-zone--hover': isDragOver, 'upload-zone--filled': files.length > 0 }"
-          @dragover.prevent="handleDragOver"
-          @dragleave.prevent="handleDragLeave"
-          @drop.prevent="handleDrop"
-          @click="triggerFileInput"
-          role="button"
-          tabindex="0"
-          aria-label="Upload files by dragging or clicking"
-          @keydown.enter="triggerFileInput"
-          @keydown.space.prevent="triggerFileInput"
-        >
-          <input
-            ref="fileInput"
-            type="file"
-            multiple
-            accept=".pdf,.md,.txt"
-            @change="handleFileSelect"
-            style="display: none"
-            :disabled="predicting"
-          />
-
-          <div v-if="files.length === 0" class="upload-placeholder">
-            <div class="upload-icon-wrap">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-            </div>
-            <div class="upload-label">Drag & drop files here</div>
-            <div class="upload-hint">or click to browse</div>
-            <div class="upload-formats">PDF, TXT, MD supported</div>
-          </div>
-
-          <div v-else class="file-grid" @click.stop>
-            <!-- Prevent zone click when interacting with chips -->
-          </div>
-        </div>
-
-        <!-- File Chips -->
-        <div v-if="files.length > 0" class="file-chips">
-          <div v-for="(file, index) in files" :key="index" class="file-chip">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span class="file-chip-name">{{ file.name }}</span>
-            <button
-              class="file-chip-remove"
-              @click="removeFile(index)"
-              :aria-label="'Remove ' + file.name"
+        <!-- Creation Form -->
+        <section class="creation-form">
+          <!-- Upload Zone -->
+          <div class="form-section">
+            <label class="section-label">Context Documents</label>
+            <div
+              class="upload-zone"
+              :class="{
+                'upload-zone--hover': isDragOver,
+                'upload-zone--filled': files.length > 0
+              }"
+              @dragover.prevent="handleDragOver"
+              @dragleave.prevent="handleDragLeave"
+              @drop.prevent="handleDrop"
+              @click="triggerFileInput"
+              role="button"
+              tabindex="0"
+              aria-label="Upload files by dragging or clicking"
+              @keydown.enter="triggerFileInput"
+              @keydown.space.prevent="triggerFileInput"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+              <input
+                ref="fileInput"
+                type="file"
+                multiple
+                accept=".pdf,.md,.txt"
+                @change="handleFileSelect"
+                class="upload-zone__input"
+                :disabled="predicting"
+              />
+
+              <div v-if="files.length === 0" class="upload-placeholder">
+                <span class="material-symbols-outlined upload-placeholder__icon" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+                <p class="upload-placeholder__title">Drag & drop files here or click to browse</p>
+                <p class="upload-placeholder__hint">Supported formats: PDF, TXT, MD</p>
+              </div>
+            </div>
+
+            <!-- File Chips -->
+            <div v-if="files.length > 0" class="file-chips">
+              <div
+                v-for="(file, index) in files"
+                :key="index"
+                class="file-chip"
+              >
+                <span class="material-symbols-outlined file-chip__icon">description</span>
+                <span class="file-chip__name">{{ file.name }}</span>
+                <button
+                  class="file-chip__remove"
+                  @click="removeFile(index)"
+                  :aria-label="'Remove ' + file.name"
+                >
+                  <span class="material-symbols-outlined file-chip__remove-icon">close</span>
+                </button>
+              </div>
+              <button class="file-chip file-chip--add" @click="triggerFileInput">
+                <span class="material-symbols-outlined file-chip__icon">add</span>
+                Add more
+              </button>
+            </div>
           </div>
-          <button class="file-chip file-chip--add" @click="triggerFileInput">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add more
-          </button>
-        </div>
 
-        <!-- Textarea -->
-        <div class="field-group">
-          <label class="field-label" for="prediction-input">Prediction Requirement</label>
-          <textarea
-            id="prediction-input"
-            v-model="formData.simulationRequirement"
-            class="field-textarea"
-            placeholder="Describe what you want to predict..."
-            rows="4"
-            :disabled="predicting"
-          ></textarea>
-        </div>
+          <!-- Text Area Input -->
+          <div class="form-section">
+            <div class="section-label-row">
+              <label class="section-label" for="prediction-query">What do you want to predict?</label>
+              <span class="char-count">{{ formData.simulationRequirement.length }} / 5000</span>
+            </div>
+            <textarea
+              id="prediction-query"
+              v-model="formData.simulationRequirement"
+              class="prediction-textarea"
+              placeholder="e.g. How will developers, investors, and regulators react to the GPT-5 release over the next 30 days?"
+              rows="5"
+              :disabled="predicting"
+            ></textarea>
 
-        <!-- Example Prompts -->
-        <div class="examples">
-          <span class="examples-label">Example prompts:</span>
-          <div class="examples-list">
+            <!-- Example Prompt Chips -->
+            <div class="example-chips">
+              <span class="example-chips__label">Examples:</span>
+              <button
+                v-for="(prompt, i) in examplePrompts"
+                :key="i"
+                class="example-chip"
+                @click="formData.simulationRequirement = prompt"
+              >{{ prompt }}</button>
+            </div>
+          </div>
+
+          <!-- Action Button -->
+          <div class="action-section">
             <button
-              v-for="(prompt, i) in examplePrompts"
-              :key="i"
-              class="example-chip"
-              @click="formData.simulationRequirement = prompt"
-            >{{ prompt }}</button>
+              class="submit-btn"
+              @click="startOneClickPredict"
+              :disabled="!canSubmit || predicting"
+            >
+              <span v-if="!predicting">Start Prediction</span>
+              <span v-else>Starting...</span>
+              <span v-if="!predicting" class="material-symbols-outlined submit-btn__icon">auto_awesome</span>
+              <span v-else class="spinner"></span>
+            </button>
+            <p class="action-hint">Estimated processing time: ~45 seconds</p>
           </div>
-        </div>
 
-        <!-- CTA Button -->
-        <button
-          class="cta-button"
-          @click="startOneClickPredict"
-          :disabled="!canSubmit || predicting"
-        >
-          <span v-if="!predicting">Start Prediction</span>
-          <span v-else>Starting...</span>
-          <svg v-if="!predicting" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-          <span v-else class="spinner"></span>
-        </button>
-        <p class="cta-hint">Runs all 5 steps automatically</p>
-
-        <!-- Error Message -->
-        <p v-if="error" class="error-msg">{{ error }}</p>
+          <!-- Error Message -->
+          <p v-if="error" class="error-msg">{{ error }}</p>
+        </section>
       </div>
     </main>
+
+    <!-- Bottom Decorative Gradient -->
+    <div class="bottom-gradient"></div>
   </div>
 </template>
 
@@ -265,388 +248,401 @@ const startOneClickPredict = async () => {
 </script>
 
 <style scoped>
-/* ========================================
-   Home Page — Augur Design System
-   Clean, light, professional SaaS aesthetic
-   ======================================== */
-
+/* ── Page Shell ── */
 .home-page {
   min-height: 100vh;
-  background: var(--bg, #F8FAFC);
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
-  color: var(--text, #0F172A);
+  background: #F8FAFC;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #191c1e;
 }
 
-/* Navigation */
-.nav-bar {
-  position: sticky;
+/* ── Top Navigation ── */
+.top-nav {
+  position: fixed;
   top: 0;
-  z-index: 100;
-  background: var(--surface, #FFFFFF);
-  border-bottom: 1px solid var(--border, #E2E8F0);
-  backdrop-filter: blur(8px);
+  width: 100%;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 32px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.06);
 }
 
-.nav-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 56px;
+.top-nav__brand {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #4338CA;
+  text-transform: uppercase;
+}
+
+.top-nav__right {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 24px;
 }
 
-.nav-brand {
-  font-family: var(--font-brand, 'Plus Jakarta Sans', system-ui, sans-serif);
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 1.5px;
-  color: var(--primary, #4F46E5);
-}
-
-.nav-links {
+.top-nav__link {
+  color: #475569;
+  font-weight: 500;
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: color 200ms;
+  font-size: 0.875rem;
 }
 
-.nav-link {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted, #64748B);
-  text-decoration: none;
-  padding: 6px 14px;
-  border-radius: var(--radius-md, 8px);
-  transition: color var(--transition-fast, 150ms ease-out), background var(--transition-fast, 150ms ease-out);
+.top-nav__link:hover {
+  color: #4F46E5;
 }
 
-.nav-link:hover {
-  color: var(--text, #0F172A);
-  background: rgba(79, 70, 229, 0.04);
+.top-nav__link-icon {
+  font-size: 18px;
 }
 
-.nav-link--accent {
-  color: var(--primary, #4F46E5);
-  font-weight: 600;
-}
-
-.nav-link--accent:hover {
-  background: rgba(79, 70, 229, 0.08);
-  color: var(--primary-hover, #4338CA);
-}
-
-/* Main Content Area */
-.main-area {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 48px 24px 80px;
-}
-
-/* Content Card */
-.content-card {
-  background: var(--surface, #FFFFFF);
-  border-radius: var(--radius-xl, 16px);
-  border: 1px solid var(--border, #E2E8F0);
-  box-shadow: var(--shadow-card, 0 1px 3px rgba(79, 70, 229, 0.08));
-  padding: 48px 40px;
-}
-
-/* Header */
-.card-header {
-  text-align: center;
-  margin-bottom: 36px;
-}
-
-.brand-icon {
+/* ── Main Content ── */
+.main-content {
+  padding-top: 128px;
+  padding-bottom: 96px;
+  padding-left: 24px;
+  padding-right: 24px;
   display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+  flex-direction: column;
+  align-items: center;
 }
 
-.card-title {
-  font-family: var(--font-brand, 'Plus Jakarta Sans', system-ui, sans-serif);
-  font-size: 32px;
+.content-inner {
+  width: 100%;
+  max-width: 640px;
+}
+
+/* ── Page Header ── */
+.page-header {
+  margin-bottom: 48px;
+  text-align: center;
+}
+
+.page-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 2.5rem;
   font-weight: 700;
-  color: var(--text, #0F172A);
-  margin: 0 0 8px 0;
-  line-height: 1.2;
+  color: #191c1e;
+  letter-spacing: -1px;
+  margin: 0 0 16px 0;
+  line-height: 1.1;
 }
 
-.card-subtitle {
-  font-size: 16px;
-  font-weight: 400;
-  color: var(--muted, #64748B);
+.page-subtitle {
+  font-size: 1.125rem;
+  color: #464555;
+  font-weight: 500;
   margin: 0;
 }
 
-/* Upload Zone */
+/* ── Creation Form ── */
+.creation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #464555;
+  display: block;
+}
+
+.section-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.char-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #777587;
+}
+
+/* ── Upload Zone ── */
 .upload-zone {
-  border: 2px dashed var(--border, #E2E8F0);
-  border-radius: var(--radius-xl, 16px);
-  padding: 40px 24px;
-  text-align: center;
+  position: relative;
+  width: 100%;
+  height: 192px;
+  border-radius: 12px;
+  border: 2px dashed rgba(199, 196, 216, 0.4);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: border-color var(--transition-normal, 200ms ease-out),
-              background var(--transition-normal, 200ms ease-out);
-  background: var(--bg, #F8FAFC);
+  transition: all 300ms;
 }
 
 .upload-zone:hover {
-  border-color: var(--primary, #4F46E5);
-  background: rgba(79, 70, 229, 0.02);
+  background: rgba(226, 223, 255, 0.2);
+  border-color: #4F46E5;
 }
 
 .upload-zone--hover {
-  border-color: var(--primary, #4F46E5);
-  background: rgba(79, 70, 229, 0.05);
+  background: rgba(226, 223, 255, 0.3);
+  border-color: #4F46E5;
   border-style: solid;
 }
 
 .upload-zone--filled {
-  padding: 20px 24px;
+  height: auto;
+  min-height: 80px;
   border-style: solid;
-  border-color: var(--border, #E2E8F0);
+  border-color: rgba(199, 196, 216, 0.4);
   background: transparent;
   cursor: default;
+}
+
+.upload-zone__input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .upload-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  pointer-events: none;
 }
 
-.upload-icon-wrap {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(79, 70, 229, 0.08);
-  color: var(--primary, #4F46E5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
+.upload-placeholder__icon {
+  font-size: 2.5rem;
+  color: #4F46E5;
+  margin-bottom: 12px;
 }
 
-.upload-label {
+.upload-placeholder__title {
+  font-size: 1.125rem;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--text, #0F172A);
+  color: #191c1e;
+  margin: 0;
 }
 
-.upload-hint {
-  font-size: 14px;
-  color: var(--muted, #64748B);
+.upload-placeholder__hint {
+  font-size: 0.875rem;
+  color: #777587;
+  margin: 4px 0 0 0;
 }
 
-.upload-formats {
-  font-size: 12px;
-  color: #94A3B8;
-  margin-top: 4px;
-}
-
-/* File Chips */
+/* ── File Chips ── */
 .file-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
-  margin-bottom: 4px;
+  margin-top: 4px;
 }
 
 .file-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
-  background: var(--bg, #F8FAFC);
-  border: 1px solid var(--border, #E2E8F0);
-  border-radius: var(--radius-pill, 999px);
-  font-size: 13px;
+  background: #f2f4f6;
+  border-radius: 8px;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text, #0F172A);
-  line-height: 1;
+  color: #191c1e;
+  transition: background 200ms;
+  border: none;
+  font-family: inherit;
 }
 
-.file-chip svg {
-  color: var(--muted, #64748B);
-  flex-shrink: 0;
+.file-chip:hover {
+  background: #e6e8ea;
 }
 
-.file-chip-name {
-  max-width: 180px;
+.file-chip__icon {
+  font-size: 16px;
+  color: #3525CD;
+}
+
+.file-chip__name {
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.file-chip-remove {
+.file-chip__remove {
   background: none;
   border: none;
   cursor: pointer;
   padding: 2px;
-  color: #94A3B8;
-  border-radius: 50%;
+  margin-left: 4px;
+  color: #777587;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color var(--transition-fast, 150ms ease-out), background var(--transition-fast, 150ms ease-out);
+  border-radius: 50%;
+  transition: color 200ms;
 }
 
-.file-chip-remove:hover {
-  color: var(--error, #EF4444);
-  background: rgba(239, 68, 68, 0.08);
+.file-chip__remove:hover {
+  color: #BA1A1A;
+}
+
+.file-chip__remove-icon {
+  font-size: 14px;
 }
 
 .file-chip--add {
   cursor: pointer;
-  color: var(--primary, #4F46E5);
-  border-style: dashed;
+  color: #3525CD;
   background: transparent;
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
-  transition: background var(--transition-fast, 150ms ease-out);
+  border: 1px dashed rgba(199, 196, 216, 0.4);
 }
 
 .file-chip--add:hover {
-  background: rgba(79, 70, 229, 0.04);
+  background: rgba(226, 223, 255, 0.2);
 }
 
-/* Textarea Field */
-.field-group {
-  margin-top: 24px;
-}
-
-.field-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text, #0F172A);
-  margin-bottom: 8px;
-}
-
-.field-textarea {
+/* ── Prediction Textarea ── */
+.prediction-textarea {
   width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--border, #E2E8F0);
-  border-radius: var(--radius-md, 8px);
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--text, #0F172A);
-  background: var(--surface, #FFFFFF);
-  resize: vertical;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(199, 196, 216, 0.2);
+  padding: 16px;
+  font-size: 1rem;
+  color: #191c1e;
+  font-family: inherit;
+  resize: none;
   outline: none;
-  transition: border-color var(--transition-fast, 150ms ease-out), box-shadow var(--transition-fast, 150ms ease-out);
+  transition: border-color 200ms, box-shadow 200ms;
   box-sizing: border-box;
+  line-height: 1.6;
 }
 
-.field-textarea::placeholder {
-  color: #94A3B8;
+.prediction-textarea::placeholder {
+  color: rgba(119, 117, 135, 0.6);
 }
 
-.field-textarea:focus {
-  border-color: var(--primary, #4F46E5);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+.prediction-textarea:focus {
+  border-color: #3525CD;
+  box-shadow: 0 0 0 4px #E2DFFF;
 }
 
-.field-textarea:disabled {
+.prediction-textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Example Prompts */
-.examples {
-  margin-top: 20px;
-}
-
-.examples-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted, #64748B);
-  display: block;
-  margin-bottom: 8px;
-}
-
-.examples-list {
+/* ── Example Chips ── */
+.example-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+}
+
+.example-chips__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #c7c4d8;
+  text-transform: uppercase;
+  margin-right: 4px;
 }
 
 .example-chip {
-  padding: 6px 14px;
-  border: 1px solid var(--border, #E2E8F0);
-  border-radius: var(--radius-pill, 999px);
-  background: var(--surface, #FFFFFF);
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted, #64748B);
+  padding: 4px 12px;
+  background: #EADDFF;
+  color: #25005A;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: none;
   cursor: pointer;
-  transition: all var(--transition-fast, 150ms ease-out);
-  white-space: nowrap;
+  font-family: inherit;
+  transition: background 200ms;
 }
 
 .example-chip:hover {
-  border-color: var(--primary, #4F46E5);
-  color: var(--primary, #4F46E5);
-  background: rgba(79, 70, 229, 0.04);
+  background: #D2BBFF;
 }
 
-/* CTA Button */
-.cta-button {
+/* ── Action Section ── */
+.action-section {
+  padding-top: 8px;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #4F46E5, #3525CD);
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.125rem;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 100%;
-  height: 48px;
-  margin-top: 32px;
-  border: none;
-  border-radius: var(--radius-lg, 12px);
-  background: linear-gradient(135deg, var(--primary, #4F46E5) 0%, var(--secondary, #7C3AED) 100%);
-  color: #FFFFFF;
-  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform var(--transition-fast, 150ms ease-out),
-              box-shadow var(--transition-fast, 150ms ease-out),
-              opacity var(--transition-fast, 150ms ease-out);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  gap: 12px;
+  transition: transform 200ms, opacity 200ms;
 }
 
-.cta-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+.submit-btn:hover:not(:disabled) {
+  transform: scale(1.01);
 }
 
-.cta-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+.submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.cta-button:disabled {
+.submit-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
-.cta-hint {
-  text-align: center;
-  font-size: 13px;
-  color: #94A3B8;
-  margin-top: 10px;
+.submit-btn__icon {
+  font-size: 20px;
 }
 
-/* Spinner */
+.action-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #777587;
+  margin: 16px 0 0 0;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* ── Spinner ── */
 .spinner {
   width: 18px;
   height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #FFFFFF;
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -655,50 +651,65 @@ const startOneClickPredict = async () => {
   to { transform: rotate(360deg); }
 }
 
-/* Error Message */
+/* ── Error ── */
 .error-msg {
   text-align: center;
-  font-size: 14px;
-  color: var(--error, #EF4444);
-  margin-top: 12px;
-  padding: 10px 16px;
-  background: rgba(239, 68, 68, 0.06);
-  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+  color: #BA1A1A;
+  padding: 12px 16px;
+  background: rgba(255, 218, 214, 0.3);
+  border-radius: 8px;
+  margin: 0;
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .main-area {
-    padding: 24px 16px 60px;
+/* ── Bottom Gradient ── */
+.bottom-gradient {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, transparent, rgba(79, 70, 229, 0.2), transparent);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .top-nav {
+    padding: 0 16px;
   }
 
-  .content-card {
-    padding: 32px 20px;
+  .main-content {
+    padding-top: 96px;
+    padding-bottom: 64px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
-  .card-title {
-    font-size: 26px;
+  .page-title {
+    font-size: 1.75rem;
   }
 
-  .card-subtitle {
-    font-size: 14px;
+  .page-subtitle {
+    font-size: 1rem;
   }
 
   .upload-zone {
-    padding: 32px 16px;
+    height: 160px;
   }
 
-  .example-chip {
-    font-size: 12px;
-    padding: 5px 12px;
-  }
-
-  .file-chip-name {
+  .file-chip__name {
     max-width: 120px;
   }
 
-  .nav-inner {
-    padding: 0 16px;
+  .example-chip {
+    font-size: 0.6875rem;
+    padding: 4px 10px;
+  }
+}
+
+@media (min-width: 769px) {
+  .page-header {
+    text-align: left;
   }
 }
 </style>
