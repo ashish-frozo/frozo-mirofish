@@ -218,7 +218,7 @@
               </div>
             </div>
           </div>
-          <div class="chat-input">
+          <div v-if="project?.simulation_id" class="chat-input">
             <div class="chat-input__wrapper">
               <button class="chat-input__attach">
                 <span class="material-symbols-outlined">attach_file</span>
@@ -235,6 +235,10 @@
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
               </button>
             </div>
+          </div>
+          <div v-else class="chat-unavailable">
+            <span class="material-symbols-outlined">info</span>
+            <p>Chat is available after the simulation completes.</p>
           </div>
         </div>
       </div>
@@ -1246,6 +1250,17 @@ onMounted(async () => {
   font-size: 0.75rem;
   color: #94a3b8;
   text-align: center;
+}
+
+.chat-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: #64748B;
+  text-align: center;
+  gap: 8px;
 }
 
 /* ========================================

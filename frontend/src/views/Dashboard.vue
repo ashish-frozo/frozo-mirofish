@@ -370,6 +370,12 @@ function handleProjectAction(project) {
   const reportId = project.report_id
   const predictionTaskId = project.prediction_task_id
 
+  // If project failed, offer to start over
+  if (status === 'failed') {
+    router.push('/new')
+    return
+  }
+
   // If there's an active prediction task and project isn't completed, go to progress view
   if (predictionTaskId && status !== 'completed' && status !== 'interacting') {
     router.push(`/predict/${predictionTaskId}`)

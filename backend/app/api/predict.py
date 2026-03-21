@@ -288,7 +288,24 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
                     SimulationRunner.stop_simulation(simulation_id)
                     return
 
-        stages["simulation"] = {"status": "completed"}
+        # Save simulation stats to project
+        sim_rounds = run_state.total_rounds if run_state else 0
+        with get_db() as session:
+            proj_repo = ProjectRepository(session)
+            project = proj_repo.get_by_id(project_id)
+            if project:
+                step_data = dict(project.step_data or {})
+                step_data["rounds"] = sim_rounds
+                step_data["simulation_id"] = simulation_id
+                project.step_data = step_data
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(project, "step_data")
+                session.flush()
+
+        stages["simulation"] = {"status": "completed", "stats": {
+            "rounds": sim_rounds,
+            "total_actions": run_state.current_round if run_state else 0,
+        }}
         update("report", 75, "Generating prediction report...", stages)
 
         # ==================== STEP 4: Report Generation ====================
