@@ -10,7 +10,7 @@
     <!-- Header -->
     <header class="dashboard-header">
       <div class="header-left">
-        <div class="brand">MIROFISH</div>
+        <div class="brand">FROZO</div>
         <h1 class="greeting">Welcome back, {{ auth.user?.name || 'User' }}</h1>
       </div>
       <div class="header-right">

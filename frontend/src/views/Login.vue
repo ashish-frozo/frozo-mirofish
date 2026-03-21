@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page">
     <div class="auth-card">
-      <div class="auth-brand">MIROFISH</div>
+      <div class="auth-brand">FROZO</div>
       <h1 class="auth-title">Welcome back</h1>
       <p class="auth-subtitle">Sign in to continue to your dashboard</p>
 

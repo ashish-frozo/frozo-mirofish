@@ -1,9 +1,9 @@
 <template>
   <div class="auth-page">
     <div class="auth-card">
-      <div class="auth-brand">MIROFISH</div>
+      <div class="auth-brand">FROZO</div>
       <h1 class="auth-title">Create your account</h1>
-      <p class="auth-subtitle">Get started with MiroFish simulation engine</p>
+      <p class="auth-subtitle">Get started with Frozo simulation engine</p>
 
       <div v-if="error" class="auth-error">{{ error }}</div>
 
