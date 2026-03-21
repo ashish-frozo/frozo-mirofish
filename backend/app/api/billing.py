@@ -28,10 +28,10 @@ PLAN_PRODUCTS = {
 }
 
 PLAN_LIMITS = {
-    'trial': {'simulations_per_month': 3, 'max_agents': 20, 'max_rounds': 10},
-    'starter': {'simulations_per_month': 5, 'max_agents': 20, 'max_rounds': 10},
-    'pro': {'simulations_per_month': 20, 'max_agents': 50, 'max_rounds': 40},
-    'enterprise': {'simulations_per_month': 999, 'max_agents': 200, 'max_rounds': 100},
+    'trial': {'simulations_per_month': 3, 'max_agents': 20, 'max_rounds': 5, 'sim_hours': 24, 'agents_per_hour_max': 15, 'minutes_per_round': 120},
+    'starter': {'simulations_per_month': 5, 'max_agents': 20, 'max_rounds': 5, 'sim_hours': 24, 'agents_per_hour_max': 15, 'minutes_per_round': 120},
+    'pro': {'simulations_per_month': 20, 'max_agents': 50, 'max_rounds': 10, 'sim_hours': 72, 'agents_per_hour_max': 30, 'minutes_per_round': 60},
+    'enterprise': {'simulations_per_month': 999, 'max_agents': 200, 'max_rounds': 20, 'sim_hours': 168, 'agents_per_hour_max': 50, 'minutes_per_round': 30},
 }
 
 

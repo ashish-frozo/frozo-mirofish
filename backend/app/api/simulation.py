@@ -18,6 +18,7 @@ from ..middleware.auth import require_auth
 from ..repositories.simulation_repo import SimulationRepository
 from ..repositories.project_repo import ProjectRepository
 from ..db import get_db
+from .billing import PLAN_LIMITS
 
 logger = get_logger('mirofish.api.simulation')
 
@@ -204,6 +205,28 @@ def create_simulation():
                     "success": False,
                     "error": "Project graph has not been built yet. Please call /api/graph/build first."
                 }), 400
+
+            # Check monthly simulation limit
+            from datetime import datetime, timezone
+            from sqlalchemy import func
+            from ..models.db_models import SimulationModel, ProjectModel as PM
+
+            user_plan = g.current_user.plan or 'trial'
+            plan_limits = PLAN_LIMITS.get(user_plan, PLAN_LIMITS['trial'])
+
+            month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            sim_count = session.query(func.count(SimulationModel.id)).filter(
+                SimulationModel.project_id.in_(
+                    session.query(PM.id).filter(PM.user_id == g.current_user.id)
+                ),
+                SimulationModel.created_at >= month_start,
+            ).scalar()
+
+            if sim_count >= plan_limits['simulations_per_month']:
+                return jsonify({
+                    "success": False,
+                    "error": f"Monthly simulation limit reached ({plan_limits['simulations_per_month']}). Upgrade your plan for more."
+                }), 403
 
             # --- DB-backed creation ---
             repo = SimulationRepository(session)
@@ -475,6 +498,10 @@ def prepare_simulation():
                 "error": "Project is missing simulation requirement description (simulation_requirement)"
             }), 400
 
+        # Get user's plan limits for config capping
+        user_plan = g.current_user.plan or 'trial'
+        plan_limits = PLAN_LIMITS.get(user_plan, PLAN_LIMITS['trial'])
+
         entity_types_list = data.get('entity_types')
         use_llm_for_profiles = data.get('use_llm_for_profiles', True)
         parallel_profile_count = data.get('parallel_profile_count', 5)
@@ -601,7 +628,8 @@ def prepare_simulation():
                     defined_entity_types=entity_types_list,
                     use_llm_for_profiles=use_llm_for_profiles,
                     progress_callback=progress_callback,
-                    parallel_profile_count=parallel_profile_count
+                    parallel_profile_count=parallel_profile_count,
+                    plan_limits=plan_limits,
                 )
 
                 # Task complete

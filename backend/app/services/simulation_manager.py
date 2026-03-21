@@ -234,7 +234,8 @@ class SimulationManager:
         defined_entity_types: Optional[List[str]] = None,
         use_llm_for_profiles: bool = True,
         progress_callback: Optional[callable] = None,
-        parallel_profile_count: int = 3
+        parallel_profile_count: int = 3,
+        plan_limits: Optional[Dict[str, Any]] = None,
     ) -> SimulationState:
         """
         Prepare simulation environment (fully automated)
@@ -409,6 +410,17 @@ class SimulationManager:
                 enable_twitter=state.enable_twitter,
                 enable_reddit=state.enable_reddit
             )
+
+            # Cap config values based on plan limits
+            if plan_limits:
+                tc = sim_params.time_config
+                tc.total_simulation_hours = min(tc.total_simulation_hours, plan_limits.get('sim_hours', 24))
+                tc.minutes_per_round = max(tc.minutes_per_round, plan_limits.get('minutes_per_round', 120))
+                tc.agents_per_hour_max = min(tc.agents_per_hour_max, plan_limits.get('agents_per_hour_max', 15))
+                logger.info(
+                    f"Plan limits applied: sim_hours={tc.total_simulation_hours}, "
+                    f"minutes_per_round={tc.minutes_per_round}, agents_per_hour_max={tc.agents_per_hour_max}"
+                )
 
             if progress_callback:
                 progress_callback(
