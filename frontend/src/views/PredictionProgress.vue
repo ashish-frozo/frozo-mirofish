@@ -107,6 +107,23 @@
         </button>
       </div>
 
+      <!-- Live Graph Visualization -->
+      <div v-if="showGraph && graphData" class="graph-section">
+        <div class="graph-header">
+          <h3>Knowledge Graph</h3>
+          <span class="graph-stats" v-if="graphData.node_count !== undefined">
+            {{ graphData.node_count }} entities &middot; {{ graphData.edge_count }} relationships
+          </span>
+        </div>
+        <div class="graph-container">
+          <GraphPanel
+            :graphData="graphData"
+            :loading="graphLoading"
+            :currentPhase="graphPhase"
+          />
+        </div>
+      </div>
+
       <!-- Completion Summary -->
       <div class="summary-card" v-if="data.status === 'completed' && data.result">
         <div class="summary-title">Prediction Complete</div>
@@ -133,6 +150,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPredictionStatus, cancelPrediction } from '../api/predict'
+import { getGraphData } from '../api/graph'
+import GraphPanel from '../components/GraphPanel.vue'
 
 const props = defineProps({
   taskId: { type: String, required: true }
@@ -141,6 +160,11 @@ const props = defineProps({
 const router = useRouter()
 const cancelling = ref(false)
 let pollTimer = null
+
+const graphData = ref(null)
+const graphId = ref(null)
+const showGraph = ref(false)
+const graphLoading = ref(false)
 
 const data = reactive({
   status: 'pending',
@@ -195,6 +219,13 @@ const steps = computed(() => {
   })
 })
 
+const graphPhase = computed(() => {
+  const stage = data.stage
+  if (stage === 'ontology' || stage === 'graph_build') return 1
+  if (stage === 'simulation') return 3
+  return 2
+})
+
 const graphStats = computed(() => {
   const gs = data.stages?.graph_build?.stats
   if (!gs) return null
@@ -206,6 +237,32 @@ async function poll() {
     const res = await getPredictionStatus(props.taskId)
     const d = res.data
     Object.assign(data, d)
+
+    // Extract graph_id from result or stage stats
+    const result = d.result || {}
+    const stages = d.stages || {}
+    const gid = result.graph_id || stages.graph_build?.stats?.graph_id
+
+    if (gid && gid !== graphId.value) {
+      graphId.value = gid
+      showGraph.value = true
+    }
+
+    // Refresh graph data every poll if we have a graph_id
+    if (graphId.value) {
+      try {
+        graphLoading.value = true
+        const gRes = await getGraphData(graphId.value)
+        const gData = gRes.data
+        if (gData && (gData.nodes || gData.edges)) {
+          graphData.value = gData
+        }
+      } catch (e) {
+        // Graph data might not be ready yet, ignore
+      } finally {
+        graphLoading.value = false
+      }
+    }
 
     if (d.status === 'completed' || d.status === 'failed') {
       clearInterval(pollTimer)
@@ -311,7 +368,7 @@ onUnmounted(() => {
 
 /* Content */
 .prediction-content {
-  max-width: 640px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 56px 24px 80px;
 }
@@ -632,6 +689,43 @@ onUnmounted(() => {
   }
 }
 
+/* Graph Section */
+.graph-section {
+  margin-bottom: 24px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
+  animation: fadeIn 0.4s ease;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.graph-header h3 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0F172A;
+  margin: 0;
+}
+
+.graph-stats {
+  font-size: 13px;
+  color: #64748B;
+}
+
+.graph-container {
+  height: 400px;
+  position: relative;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .prediction-content {
@@ -654,6 +748,10 @@ onUnmounted(() => {
 
   .step-stats {
     text-align: left;
+  }
+
+  .graph-container {
+    height: 300px;
   }
 }
 </style>
