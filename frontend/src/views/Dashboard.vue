@@ -163,9 +163,9 @@
             <div class="project-card__footer">
               <button
                 class="btn-action"
-                @click="router.push(`/process/${project.project_id}`)"
+                @click="handleProjectAction(project)"
               >
-                {{ getStatusCategory(project.status) === 'completed' ? 'View' : 'Resume' }}
+                {{ getStatusCategory(project.status) === 'completed' ? 'View Results' : 'Resume' }}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <line x1="5" y1="12" x2="19" y2="12"/>
                   <polyline points="12 5 19 12 12 19"/>
@@ -271,6 +271,27 @@ function formatDate(dateStr) {
     day: 'numeric',
     year: 'numeric'
   })
+}
+
+function handleProjectAction(project) {
+  const status = project.status
+  const projectId = project.project_id
+  const reportId = project.report_id
+  const simulationId = project.simulation_id
+
+  if ((status === 'completed' || status === 'interacting') && reportId) {
+    // Go to interaction view (has report + agent chat)
+    router.push(`/interaction/${reportId}`)
+  } else if (status === 'reporting' && reportId) {
+    // Go to report view
+    router.push(`/report/${reportId}`)
+  } else if ((status === 'simulating') && simulationId) {
+    // Go to simulation run view
+    router.push(`/simulation/${simulationId}/start`)
+  } else {
+    // Default: go to process view
+    router.push(`/process/${projectId}`)
+  }
 }
 
 async function handleLogout() {

@@ -298,12 +298,20 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
 
         report_id = report.report_id if report else None
 
-        # Update project
+        # Update project with simulation_id and report_id for navigation
         with get_db() as session:
             proj_repo = ProjectRepository(session)
             project = proj_repo.get_by_id(project_id)
             if project:
-                proj_repo.update(project, status="completed", current_step=5)
+                step_data = dict(project.step_data or {})
+                step_data["simulation_id"] = simulation_id
+                step_data["report_id"] = report_id
+                project.step_data = step_data
+                project.status = "completed"
+                project.current_step = 5
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(project, "step_data")
+                session.flush()
 
         stages["report"] = {"status": "completed", "report_id": report_id}
         stages["interaction"] = {"status": "ready"}

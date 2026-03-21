@@ -46,6 +46,9 @@ def _project_to_dict(project) -> dict:
         "chunk_size": project.chunk_size,
         "chunk_overlap": project.chunk_overlap,
         "error": project.step_data.get("error") if project.step_data else None,
+        "simulation_id": project.step_data.get("simulation_id") if project.step_data else None,
+        "report_id": project.step_data.get("report_id") if project.step_data else None,
+        "current_step": project.current_step,
     }
 
 
