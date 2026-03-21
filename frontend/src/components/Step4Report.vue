@@ -16,6 +16,27 @@
             <div class="header-divider"></div>
           </div>
 
+          <!-- Download Buttons — shown once report is complete -->
+          <div v-if="isComplete" class="download-bar">
+            <button class="download-btn" @click="handleDownload('md')" :disabled="downloading">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Markdown</span>
+            </button>
+            <button class="download-btn" @click="handleDownload('html')" :disabled="downloading">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>HTML</span>
+            </button>
+            <span v-if="downloadError" class="download-error">{{ downloadError }}</span>
+          </div>
+
           <!-- Sections List -->
           <div class="sections-list">
             <div 
@@ -392,7 +413,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, downloadReport } from '../api/report'
 
 const router = useRouter()
 
@@ -408,6 +429,25 @@ const emit = defineEmits(['add-log', 'update-status'])
 const goToInteraction = () => {
   if (props.reportId) {
     router.push({ name: 'Interaction', params: { reportId: props.reportId } })
+  }
+}
+
+// Download
+const downloading = ref(false)
+const downloadError = ref('')
+
+const handleDownload = async (format) => {
+  if (!props.reportId) return
+  downloading.value = true
+  downloadError.value = ''
+  try {
+    await downloadReport(props.reportId, format)
+  } catch (e) {
+    console.error('Download failed:', e)
+    downloadError.value = 'Download failed'
+    setTimeout(() => { downloadError.value = '' }, 3000)
+  } finally {
+    downloading.value = false
   }
 }
 
@@ -2405,6 +2445,45 @@ watch(() => props.reportId, (newId) => {
 }
 
 /* Sections List */
+.download-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid #D1D5DB;
+  background: #FFFFFF;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: #F3F4F6;
+  border-color: #9CA3AF;
+  color: #111827;
+}
+
+.download-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.download-error {
+  font-size: 12px;
+  color: #EF4444;
+  margin-left: 8px;
+}
+
 .sections-list {
   display: flex;
   flex-direction: column;

@@ -49,3 +49,27 @@ export const getReport = (reportId) => {
 export const chatWithReport = (data) => {
   return requestWithRetry(() => service.post('/api/report/chat', data), 3, 1000)
 }
+
+/**
+ * Download report as Markdown or HTML file
+ * Uses fetch + blob so the Authorization header can be sent
+ * @param {string} reportId
+ * @param {'md'|'html'} format
+ */
+export const downloadReport = async (reportId, format = 'md') => {
+  const token = localStorage.getItem('access_token')
+  const baseURL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '' : 'http://localhost:5001')
+  const response = await fetch(`${baseURL}/api/report/${reportId}/download?format=${format}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!response.ok) throw new Error('Download failed')
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `report.${format}`
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
