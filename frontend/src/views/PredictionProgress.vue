@@ -3,32 +3,33 @@
     <!-- Header -->
     <nav class="prediction-nav">
       <div class="nav-brand" @click="$router.push('/dashboard')">AUGUR</div>
-      <div class="nav-status">
-        <span class="status-badge" :class="statusClass">{{ statusLabel }}</span>
-      </div>
+      <button
+        v-if="data.status === 'running'"
+        class="cancel-btn"
+        @click="handleCancel"
+        :disabled="cancelling"
+      >
+        {{ cancelling ? 'Cancelling...' : 'Cancel' }}
+      </button>
     </nav>
 
     <div class="prediction-content">
-      <!-- Title -->
+      <!-- Title + Progress -->
       <div class="prediction-header">
-        <h1 class="prediction-title">Prediction Pipeline</h1>
-        <p class="prediction-subtitle">Orchestrating all 5 steps automatically</p>
-      </div>
-
-      <!-- Overall Progress Bar -->
-      <div class="progress-section">
-        <div class="progress-label">
-          <span class="progress-text">Overall Progress</span>
+        <h1 class="prediction-title">Building Your Prediction</h1>
+        <div class="progress-section">
+          <div class="progress-track">
+            <div
+              class="progress-fill"
+              :style="{ width: (data.progress || 0) + '%' }"
+            ></div>
+          </div>
           <span class="progress-percent">{{ data.progress || 0 }}%</span>
         </div>
-        <div class="progress-track">
-          <div class="progress-fill" :style="{ width: (data.progress || 0) + '%' }"></div>
-        </div>
-        <div class="progress-message" v-if="data.message">{{ data.message }}</div>
       </div>
 
-      <!-- Step Checklist -->
-      <div class="steps-checklist">
+      <!-- Step Checklist Card -->
+      <div class="steps-card">
         <div
           v-for="(step, index) in steps"
           :key="step.key"
@@ -41,45 +42,60 @@
           }"
         >
           <div class="step-indicator">
-            <span v-if="step.status === 'completed'" class="step-check">&#10003;</span>
-            <span v-else-if="step.status === 'active'" class="step-spinner"></span>
+            <span v-if="step.status === 'completed'" class="step-check">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="8" fill="#10B981"/>
+                <path d="M5 8l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span v-else-if="step.status === 'active' && data.status !== 'failed'" class="step-spinner"></span>
+            <span v-else-if="data.status === 'failed' && step.status === 'active'" class="step-error-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="8" fill="#EF4444"/>
+                <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
             <span v-else class="step-circle"></span>
           </div>
-          <div class="step-details">
-            <div class="step-name">
-              <span class="step-number">{{ String(index + 1).padStart(2, '0') }}</span>
-              {{ step.label }}
-            </div>
-            <div class="step-desc">{{ step.description }}</div>
-            <div class="step-stats" v-if="step.stats">{{ step.stats }}</div>
+          <div class="step-info">
+            <span class="step-name">{{ step.label }}</span>
+            <span class="step-stats" v-if="step.status === 'completed' && step.stats">{{ step.stats }}</span>
+            <span class="step-stats" v-else-if="step.status === 'active' && data.message">{{ data.message }}</span>
+            <span class="step-stats step-waiting" v-else-if="step.status === 'pending'">Waiting...</span>
           </div>
         </div>
       </div>
 
-      <!-- Error Message -->
-      <div class="error-section" v-if="data.status === 'failed' && data.error">
-        <div class="error-title">Pipeline Failed</div>
-        <div class="error-message">{{ data.error }}</div>
+      <!-- Current Status Message -->
+      <p class="current-status" v-if="data.status === 'running' && data.message">
+        Current: {{ data.message }}
+      </p>
+
+      <!-- Error Card -->
+      <div class="error-card" v-if="data.status === 'failed' && data.error">
+        <div class="error-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="10" fill="#FEE2E2"/>
+            <path d="M10 6v4M10 13h.01" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="error-body">
+          <div class="error-title">Prediction Failed</div>
+          <div class="error-message">{{ data.error }}</div>
+        </div>
       </div>
 
       <!-- Action Buttons -->
       <div class="action-section">
-        <button
-          v-if="data.status === 'running'"
-          class="cancel-btn"
-          @click="handleCancel"
-          :disabled="cancelling"
-        >
-          {{ cancelling ? 'Cancelling...' : 'Cancel Prediction' }}
-        </button>
-
         <button
           v-if="data.status === 'completed' && data.result"
           class="explore-btn"
           @click="handleExplore"
         >
           Explore Results
-          <span class="btn-arrow">&#8594;</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="btn-arrow">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
 
         <button
@@ -87,25 +103,25 @@
           class="retry-btn"
           @click="$router.push('/new')"
         >
-          Try Again
+          Retry
         </button>
       </div>
 
       <!-- Completion Summary -->
-      <div class="summary-section" v-if="data.status === 'completed' && data.result">
+      <div class="summary-card" v-if="data.status === 'completed' && data.result">
         <div class="summary-title">Prediction Complete</div>
         <div class="summary-grid">
           <div class="summary-item" v-if="data.result.graph_id">
-            <div class="summary-label">Graph ID</div>
-            <div class="summary-value mono">{{ data.result.graph_id }}</div>
+            <span class="summary-label">Graph ID</span>
+            <span class="summary-value mono">{{ data.result.graph_id }}</span>
           </div>
           <div class="summary-item" v-if="data.result.simulation_id">
-            <div class="summary-label">Simulation ID</div>
-            <div class="summary-value mono">{{ data.result.simulation_id }}</div>
+            <span class="summary-label">Simulation ID</span>
+            <span class="summary-value mono">{{ data.result.simulation_id }}</span>
           </div>
           <div class="summary-item" v-if="graphStats">
-            <div class="summary-label">Knowledge Graph</div>
-            <div class="summary-value">{{ graphStats }}</div>
+            <span class="summary-label">Knowledge Graph</span>
+            <span class="summary-value">{{ graphStats }}</span>
           </div>
         </div>
       </div>
@@ -137,11 +153,11 @@ const data = reactive({
 })
 
 const STEP_DEFS = [
-  { key: 'ontology',    label: 'Ontology Extraction',  description: 'Analyzing documents and generating entity/relationship types' },
-  { key: 'graph_build', label: 'Knowledge Graph',      description: 'Building Zep knowledge graph from extracted ontology' },
-  { key: 'env_setup',   label: 'Environment Setup',    description: 'Generating agent profiles and simulation configuration' },
-  { key: 'simulation',  label: 'Run Simulation',       description: 'Executing dual-platform parallel simulation' },
-  { key: 'report',      label: 'Report Generation',    description: 'ReACT agent generating prediction insights' },
+  { key: 'ontology',    label: 'Knowledge Graph',       description: 'Analyzing documents and building entity graph' },
+  { key: 'graph_build', label: 'Graph Enrichment',       description: 'Enriching Zep knowledge graph with relationships' },
+  { key: 'env_setup',   label: 'Agent Profiles',         description: 'Generating agent profiles and simulation config' },
+  { key: 'simulation',  label: 'Simulation',             description: 'Running dual-platform parallel simulation' },
+  { key: 'report',      label: 'Report Generation',      description: 'Generating prediction insights' },
 ]
 
 const steps = computed(() => {
@@ -155,9 +171,14 @@ const steps = computed(() => {
 
     if (stageData && stageData.status === 'completed') {
       status = 'completed'
-      // Build stats string
       if (def_.key === 'graph_build' && stageData.stats) {
-        stats = `${stageData.stats.nodes} nodes, ${stageData.stats.edges} edges`
+        stats = `${stageData.stats.nodes} entities, ${stageData.stats.edges} edges`
+      }
+      if (def_.key === 'env_setup' && stageData.stats?.agents) {
+        stats = `${stageData.stats.agents} agents configured`
+      }
+      if (def_.key === 'simulation' && stageData.stats?.rounds) {
+        stats = `${stageData.stats.rounds} rounds completed`
       }
     } else if (def_.key === currentStage) {
       status = 'active'
@@ -166,7 +187,6 @@ const steps = computed(() => {
       // Steps before current that aren't marked completed are still pending
     }
 
-    // Special case: interaction ready
     if (def_.key === 'report' && data.stages.interaction?.status === 'ready') {
       status = 'completed'
     }
@@ -175,23 +195,10 @@ const steps = computed(() => {
   })
 })
 
-const statusClass = computed(() => {
-  if (data.status === 'completed') return 'status-completed'
-  if (data.status === 'failed') return 'status-failed'
-  return 'status-running'
-})
-
-const statusLabel = computed(() => {
-  if (data.status === 'completed') return 'COMPLETED'
-  if (data.status === 'failed') return 'FAILED'
-  if (data.status === 'running') return 'RUNNING'
-  return 'PENDING'
-})
-
 const graphStats = computed(() => {
   const gs = data.stages?.graph_build?.stats
   if (!gs) return null
-  return `${gs.nodes} nodes, ${gs.edges} edges`
+  return `${gs.nodes} entities, ${gs.edges} edges`
 })
 
 async function poll() {
@@ -245,320 +252,56 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Variables */
-:root {
-  --bg-primary: #0a0a1a;
-  --bg-secondary: #111128;
-  --bg-card: #161632;
-  --text-primary: #e8e8f0;
-  --text-secondary: #8888aa;
-  --text-muted: #555570;
-  --accent: #FF4500;
-  --accent-glow: rgba(255, 69, 0, 0.3);
-  --success: #22c55e;
-  --error: #ef4444;
-  --border: #222244;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'Space Grotesk', system-ui, sans-serif;
-}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 .prediction-container {
   min-height: 100vh;
-  background: #0a0a1a;
-  color: #e8e8f0;
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  background: #F8FAFC;
+  color: #0F172A;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 /* Navigation */
 .prediction-nav {
-  height: 60px;
-  background: #08081a;
+  height: 56px;
+  background: #FFFFFF;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
-  border-bottom: 1px solid #222244;
+  padding: 0 32px;
+  border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.04);
 }
 
 .nav-brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
-  letter-spacing: 1px;
-  font-size: 1.1rem;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 0.95rem;
+  color: #4F46E5;
   cursor: pointer;
   transition: opacity 0.2s;
 }
 
 .nav-brand:hover {
-  opacity: 0.8;
-}
-
-.status-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  padding: 4px 12px;
-  border-radius: 3px;
-}
-
-.status-running {
-  background: rgba(255, 69, 0, 0.15);
-  color: #FF4500;
-  border: 1px solid rgba(255, 69, 0, 0.3);
-  animation: pulse-status 2s ease-in-out infinite;
-}
-
-.status-completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.status-failed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-@keyframes pulse-status {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-/* Content */
-.prediction-content {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 60px 24px;
-}
-
-.prediction-header {
-  margin-bottom: 48px;
-}
-
-.prediction-title {
-  font-size: 2rem;
-  font-weight: 600;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
-}
-
-.prediction-subtitle {
-  font-size: 0.95rem;
-  color: #8888aa;
-  margin: 0;
-}
-
-/* Progress Bar */
-.progress-section {
-  margin-bottom: 48px;
-}
-
-.progress-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.progress-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: #8888aa;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.progress-percent {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #FF4500;
-}
-
-.progress-track {
-  height: 4px;
-  background: #222244;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #FF4500, #ff6b35);
-  border-radius: 2px;
-  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 0 12px rgba(255, 69, 0, 0.4);
-}
-
-.progress-message {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  color: #8888aa;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* Steps Checklist */
-.steps-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 48px;
-}
-
-.step-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
-  border-radius: 6px;
-  background: transparent;
-  transition: background 0.3s;
-}
-
-.step-row.step-active {
-  background: #161632;
-  border: 1px solid #222244;
-}
-
-.step-row.step-completed {
-  opacity: 0.85;
-}
-
-.step-row.step-pending {
-  opacity: 0.4;
-}
-
-.step-row.step-failed {
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-/* Indicators */
-.step-indicator {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.step-check {
-  color: #22c55e;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.step-circle {
-  width: 10px;
-  height: 10px;
-  border: 2px solid #555570;
-  border-radius: 50%;
-}
-
-.step-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #222244;
-  border-top-color: #FF4500;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Step Details */
-.step-details {
-  flex: 1;
-}
-
-.step-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.step-number {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: #555570;
-  margin-right: 10px;
-}
-
-.step-desc {
-  font-size: 0.8rem;
-  color: #8888aa;
-  line-height: 1.5;
-}
-
-.step-stats {
-  margin-top: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: #22c55e;
-}
-
-/* Error Section */
-.error-section {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 6px;
-  padding: 20px;
-  margin-bottom: 32px;
-}
-
-.error-title {
-  font-weight: 700;
-  color: #ef4444;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-}
-
-.error-message {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  color: #ff8888;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-/* Action Buttons */
-.action-section {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 48px;
-}
-
-.cancel-btn,
-.explore-btn,
-.retry-btn {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 14px 28px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  opacity: 0.75;
 }
 
 .cancel-btn {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #EF4444;
   background: transparent;
-  color: #8888aa;
-  border: 1px solid #333355;
+  color: #EF4444;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .cancel-btn:hover:not(:disabled) {
-  border-color: #ef4444;
-  color: #ef4444;
+  background: #FEF2F2;
 }
 
 .cancel-btn:disabled {
@@ -566,64 +309,294 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-.explore-btn {
-  background: #FF4500;
-  color: #fff;
+/* Content */
+.prediction-content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+}
+
+/* Header */
+.prediction-header {
+  margin-bottom: 40px;
+}
+
+.prediction-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 20px 0;
+  letter-spacing: -0.3px;
+}
+
+/* Progress Bar */
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.progress-track {
   flex: 1;
+  height: 8px;
+  background: #E2E8F0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4F46E5, #7C3AED);
+  border-radius: 9999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progress-percent {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4F46E5;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Steps Card */
+.steps-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 8px 0;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  transition: background 0.25s ease, opacity 0.3s ease;
+}
+
+.step-row + .step-row {
+  border-top: 1px solid #F1F5F9;
+}
+
+.step-row.step-active {
+  background: #F5F3FF;
+}
+
+.step-row.step-completed {
+  /* full opacity, normal */
+}
+
+.step-row.step-pending {
+  opacity: 0.55;
+}
+
+.step-row.step-failed {
+  background: #FEF2F2;
+}
+
+/* Step Indicator */
+.step-indicator {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-check svg,
+.step-error-icon svg {
+  display: block;
+}
+
+.step-circle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #CBD5E1;
+  border-radius: 50%;
+}
+
+.step-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #E2E8F0;
+  border-top-color: #4F46E5;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Step Info */
+.step-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.step-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #0F172A;
+  white-space: nowrap;
+}
+
+.step-stats {
+  font-size: 0.8rem;
+  color: #64748B;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-waiting {
+  color: #94A3B8;
+}
+
+/* Current Status */
+.current-status {
+  font-size: 14px;
+  color: #64748B;
+  margin: 0 0 32px 0;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Error Card */
+.error-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+  animation: fadeIn 0.3s ease;
+}
+
+.error-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.error-title {
+  font-weight: 600;
+  color: #EF4444;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.error-message {
+  font-size: 0.8rem;
+  color: #991B1B;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Action Buttons */
+.action-section {
+  margin-bottom: 32px;
+}
+
+.explore-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  animation: fadeIn 0.4s ease;
 }
 
 .explore-btn:hover {
-  background: #e63e00;
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(255, 69, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+}
+
+.explore-btn:active {
+  transform: translateY(0);
 }
 
 .btn-arrow {
-  font-size: 1.1rem;
+  transition: transform 0.2s;
+}
+
+.explore-btn:hover .btn-arrow {
+  transform: translateX(2px);
 }
 
 .retry-btn {
-  background: #222244;
-  color: #e8e8f0;
-  border: 1px solid #333355;
+  width: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 10px;
+  border: 1px solid #EF4444;
+  background: #FFFFFF;
+  color: #EF4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: fadeIn 0.4s ease;
 }
 
 .retry-btn:hover {
-  border-color: #FF4500;
-  color: #FF4500;
+  background: #FEF2F2;
 }
 
-/* Summary Section */
-.summary-section {
-  background: #161632;
-  border: 1px solid #222244;
-  border-radius: 6px;
-  padding: 24px;
+/* Summary Card */
+.summary-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
+  animation: fadeIn 0.4s ease;
 }
 
 .summary-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 0.85rem;
-  font-weight: 700;
-  color: #22c55e;
+  font-weight: 600;
+  color: #10B981;
   margin-bottom: 16px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
 }
 
 .summary-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
 .summary-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #222244;
+  padding: 10px 0;
+  border-bottom: 1px solid #F1F5F9;
 }
 
 .summary-item:last-child {
@@ -632,32 +605,55 @@ onUnmounted(() => {
 
 .summary-label {
   font-size: 0.8rem;
-  color: #8888aa;
+  color: #64748B;
 }
 
 .summary-value {
   font-size: 0.85rem;
   font-weight: 600;
+  color: #0F172A;
 }
 
 .summary-value.mono {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
-  color: #8888aa;
+  color: #64748B;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Responsive */
 @media (max-width: 768px) {
   .prediction-content {
-    padding: 40px 16px;
+    padding: 36px 16px 60px;
   }
 
   .prediction-title {
-    font-size: 1.6rem;
+    font-size: 24px;
   }
 
   .prediction-nav {
-    padding: 0 20px;
+    padding: 0 16px;
+  }
+
+  .step-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .step-stats {
+    text-align: left;
   }
 }
 </style>
