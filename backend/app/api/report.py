@@ -505,12 +505,15 @@ def download_report(report_id: str):
         markdown_content = None
         report_title = "Prediction Report"
 
-        with get_db() as session:
-            report_repo = ReportRepository(session)
-            db_report = report_repo.get_by_id(report_id)
-            if db_report and db_report.markdown_content:
-                markdown_content = db_report.markdown_content
-                report_title = db_report.title or report_title
+        try:
+            with get_db() as session:
+                report_repo = ReportRepository(session)
+                db_report = report_repo.get_by_id(report_id)
+                if db_report and db_report.markdown_content:
+                    markdown_content = db_report.markdown_content
+                    report_title = db_report.title or report_title
+        except Exception:
+            pass  # Non-UUID report_id or DB error, fall through to file-based
 
         if not markdown_content:
             # Fallback to file-based manager
