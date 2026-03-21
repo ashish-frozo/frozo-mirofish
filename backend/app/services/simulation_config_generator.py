@@ -83,14 +83,14 @@ class AgentActivityConfig:
 class TimeSimulationConfig:
     """Time simulation configuration (based on typical daily activity patterns)"""
     # Total simulation duration (simulated hours)
-    total_simulation_hours: int = 72  # Default: simulate 72 hours (3 days)
+    total_simulation_hours: int = 24  # Default: simulate 24 hours (1 day)
 
-    # Time represented per round (simulated minutes) - default 60 minutes (1 hour), accelerated time flow
-    minutes_per_round: int = 60
+    # Time represented per round (simulated minutes) - default 120 minutes (2 hours), accelerated time flow
+    minutes_per_round: int = 120
 
     # Range of Agents activated per hour
-    agents_per_hour_min: int = 5
-    agents_per_hour_max: int = 20
+    agents_per_hour_min: int = 3
+    agents_per_hour_max: int = 15
 
     # Peak hours (evening 19-22, most active time)
     peak_hours: List[int] = field(default_factory=lambda: [19, 20, 21, 22])
@@ -560,12 +560,14 @@ Please generate time configuration JSON.
 
 ### Return JSON format (no markdown)
 
+IMPORTANT: Keep simulations SHORT to minimize cost. Use 24 hours max unless absolutely necessary.
+
 Example:
 {{
-    "total_simulation_hours": 72,
-    "minutes_per_round": 60,
-    "agents_per_hour_min": 5,
-    "agents_per_hour_max": 50,
+    "total_simulation_hours": 24,
+    "minutes_per_round": 120,
+    "agents_per_hour_min": 3,
+    "agents_per_hour_max": 15,
     "peak_hours": [19, 20, 21, 22],
     "off_peak_hours": [0, 1, 2, 3, 4, 5],
     "morning_hours": [6, 7, 8],
@@ -574,8 +576,8 @@ Example:
 }}
 
 Field descriptions:
-- total_simulation_hours (int): Total simulation duration, 24-168 hours, shorter for breaking events, longer for ongoing topics
-- minutes_per_round (int): Duration per round, 30-120 minutes, recommended 60 minutes
+- total_simulation_hours (int): Total simulation duration, 12-24 hours (keep short for efficiency)
+- minutes_per_round (int): Duration per round, 60-120 minutes, recommended 120 minutes
 - agents_per_hour_min (int): Minimum Agents activated per hour (range: 1-{max_agents_allowed})
 - agents_per_hour_max (int): Maximum Agents activated per hour (range: 1-{max_agents_allowed})
 - peak_hours (int array): Peak hours, adjust based on event participant groups
