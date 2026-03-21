@@ -38,8 +38,8 @@ class Config:
     ALLOWED_EXTENSIONS = {'pdf', 'md', 'txt', 'markdown'}
 
     # Text processing configuration
-    DEFAULT_CHUNK_SIZE = 500  # Default chunk size
-    DEFAULT_CHUNK_OVERLAP = 50  # Default overlap size
+    DEFAULT_CHUNK_SIZE = 1500  # Larger chunks = fewer API calls, better context for Graphiti
+    DEFAULT_CHUNK_OVERLAP = 100  # Default overlap size
 
     # OASIS simulation configuration
     OASIS_DEFAULT_MAX_ROUNDS = int(os.environ.get('OASIS_DEFAULT_MAX_ROUNDS', '10'))

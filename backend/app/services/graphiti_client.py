@@ -111,12 +111,21 @@ class GraphitiClient:
         self._neo4j_driver = None
 
     def _new_graphiti(self):
-        """Create a fresh Graphiti instance (must be created per event loop)."""
+        """Create a fresh Graphiti instance with gpt-4o-mini for cost efficiency."""
         from graphiti_core import Graphiti
+        from graphiti_core.llm_client import OpenAIClient, LLMConfig
+
+        llm_config = LLMConfig(
+            model="gpt-4o-mini",
+            small_model="gpt-4o-mini",
+        )
+        llm_client = OpenAIClient(config=llm_config)
+
         return Graphiti(
             uri=Config.NEO4J_URI,
             user=Config.NEO4J_USER,
             password=Config.NEO4J_PASSWORD,
+            llm_client=llm_client,
         )
 
     def _get_neo4j(self):
@@ -175,7 +184,9 @@ class GraphitiClient:
 
         async def _add():
             from graphiti_core import Graphiti
-            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD)
+            from graphiti_core.llm_client import OpenAIClient, LLMConfig
+            _cfg = LLMConfig(model="gpt-4o-mini", small_model="gpt-4o-mini")
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_cfg))
             try:
                 await g.add_episode(
                     name=source,
@@ -214,7 +225,9 @@ class GraphitiClient:
 
         async def _search():
             from graphiti_core import Graphiti
-            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD)
+            from graphiti_core.llm_client import OpenAIClient, LLMConfig
+            _cfg = LLMConfig(model="gpt-4o-mini", small_model="gpt-4o-mini")
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_cfg))
             try:
                 results = await g.search(
                     query=query,
