@@ -67,6 +67,12 @@ const routes = [
     props: true
   },
   {
+    path: '/workspace/:projectId',
+    name: 'Workspace',
+    component: () => import('../views/WorkspaceView.vue'),
+    props: true
+  },
+  {
     path: '/predict/:taskId',
     name: 'PredictionProgress',
     component: () => import('../views/PredictionProgress.vue'),

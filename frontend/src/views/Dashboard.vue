@@ -419,7 +419,7 @@ function handleProjectAction(project) {
   const simulationId = project.simulation_id
 
   if ((status === 'completed' || status === 'interacting') && reportId) {
-    router.push(`/interaction/${reportId}`)
+    router.push(`/workspace/${projectId}`)
   } else if (status === 'reporting' && reportId) {
     router.push(`/report/${reportId}`)
   } else if ((status === 'simulating') && simulationId) {
