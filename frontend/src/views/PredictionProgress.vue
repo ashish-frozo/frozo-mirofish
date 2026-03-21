@@ -85,21 +85,60 @@
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="action-section">
-        <button
-          v-if="data.status === 'completed' && data.result"
-          class="explore-btn"
-          @click="handleExplore"
-        >
-          Explore Results
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="btn-arrow">
-            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+      <!-- Result Action Cards -->
+      <div v-if="data.status === 'completed' && data.result" class="result-actions">
+        <h3>Prediction Complete!</h3>
+        <p>Your prediction is ready. Explore the results:</p>
 
+        <div class="action-cards">
+          <button class="action-card" @click="goToReport">
+            <div class="action-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="action-text">
+              <strong>View Report</strong>
+              <span>Read the full prediction analysis</span>
+            </div>
+          </button>
+
+          <button class="action-card" @click="goToInteraction">
+            <div class="action-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M4 4h12a1 1 0 011 1v8a1 1 0 01-1 1H7l-3 3V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="7.5" cy="9" r="0.75" fill="currentColor"/>
+                <circle cx="10" cy="9" r="0.75" fill="currentColor"/>
+                <circle cx="12.5" cy="9" r="0.75" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="action-text">
+              <strong>Chat with Agents</strong>
+              <span>Interview simulated agents</span>
+            </div>
+          </button>
+
+          <button class="action-card" @click="goToProject">
+            <div class="action-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="5" cy="15" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="15" cy="15" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8.5 7l-2 5.5M11.5 7l2 5.5M7.5 15h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="action-text">
+              <strong>Full Workspace</strong>
+              <span>Graph, simulation details, and more</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Retry Button -->
+      <div class="action-section" v-if="data.status === 'failed'">
         <button
-          v-if="data.status === 'failed'"
           class="retry-btn"
           @click="$router.push('/new')"
         >
@@ -195,14 +234,42 @@ const steps = computed(() => {
 
     if (stageData && stageData.status === 'completed') {
       status = 'completed'
+      if (def_.key === 'ontology' && stageData.stats) {
+        const s = stageData.stats
+        if (s.concepts) stats = `${s.concepts} concepts extracted`
+      }
       if (def_.key === 'graph_build' && stageData.stats) {
-        stats = `${stageData.stats.nodes} entities, ${stageData.stats.edges} edges`
+        stats = `${stageData.stats.nodes} entities \u00b7 ${stageData.stats.edges} relationships`
       }
       if (def_.key === 'env_setup' && stageData.stats?.agents) {
         stats = `${stageData.stats.agents} agents configured`
       }
-      if (def_.key === 'simulation' && stageData.stats?.rounds) {
-        stats = `${stageData.stats.rounds} rounds completed`
+      if (def_.key === 'simulation' && stageData.stats) {
+        const s = stageData.stats
+        if (s.total_rounds) {
+          stats = `${s.total_rounds} rounds \u00b7 ${s.actions || 0} actions`
+        } else if (s.rounds) {
+          stats = `${s.rounds} rounds completed`
+        }
+      }
+      if (def_.key === 'report') {
+        stats = 'Analysis complete'
+      }
+    } else if (stageData && stageData.status === 'running') {
+      status = 'active'
+      reachedCurrent = true
+      // Show in-progress stats for active steps
+      if (def_.key === 'simulation' && stageData.stats) {
+        const s = stageData.stats
+        if (s.round && s.total_rounds) {
+          stats = `Round ${s.round}/${s.total_rounds}` + (s.actions ? ` \u00b7 ${s.actions} actions so far` : '')
+        }
+      }
+      if (def_.key === 'report' && stageData.stats) {
+        const s = stageData.stats
+        if (s.section && s.total_sections) {
+          stats = `Section ${s.section}/${s.total_sections} generating...`
+        }
       }
     } else if (def_.key === currentStage) {
       status = 'active'
@@ -213,6 +280,7 @@ const steps = computed(() => {
 
     if (def_.key === 'report' && data.stages.interaction?.status === 'ready') {
       status = 'completed'
+      if (!stats) stats = 'Analysis complete'
     }
 
     return { ...def_, status, stats }
@@ -229,7 +297,7 @@ const graphPhase = computed(() => {
 const graphStats = computed(() => {
   const gs = data.stages?.graph_build?.stats
   if (!gs) return null
-  return `${gs.nodes} entities, ${gs.edges} edges`
+  return `${gs.nodes} entities \u00b7 ${gs.edges} relationships`
 })
 
 async function poll() {
@@ -286,11 +354,23 @@ async function handleCancel() {
   }
 }
 
-function handleExplore() {
+function goToReport() {
   const result = data.result
   if (result?.report_id) {
     router.push({ name: 'Report', params: { reportId: result.report_id } })
-  } else if (result?.project_id) {
+  }
+}
+
+function goToInteraction() {
+  const result = data.result
+  if (result?.report_id) {
+    router.push({ name: 'Interaction', params: { reportId: result.report_id } })
+  }
+}
+
+function goToProject() {
+  const result = data.result
+  if (result?.project_id) {
     router.push({ name: 'Process', params: { projectId: result.project_id } })
   }
 }
@@ -561,46 +641,89 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
-/* Action Buttons */
-.action-section {
+/* Result Action Cards */
+.result-actions {
+  margin-top: 24px;
   margin-bottom: 32px;
-}
-
-.explore-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 14px 24px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(135deg, #4F46E5, #7C3AED);
-  color: #FFFFFF;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  text-align: center;
   animation: fadeIn 0.4s ease;
 }
 
-.explore-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+.result-actions h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text, #0F172A);
+  margin: 0 0 8px 0;
 }
 
-.explore-btn:active {
+.result-actions p {
+  color: var(--muted, #64748B);
+  margin: 0 0 24px 0;
+  font-size: 15px;
+}
+
+.action-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.action-card {
+  background: var(--surface, #FFFFFF);
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.action-card:hover {
+  border-color: var(--primary, #4F46E5);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
+  transform: translateY(-2px);
+}
+
+.action-card:active {
   transform: translateY(0);
 }
 
-.btn-arrow {
-  transition: transform 0.2s;
+.action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #EEF2FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.explore-btn:hover .btn-arrow {
-  transform: translateX(2px);
+.action-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary, #4F46E5);
+}
+
+.action-text strong {
+  display: block;
+  font-size: 15px;
+  color: var(--text, #0F172A);
+  margin-bottom: 4px;
+}
+
+.action-text span {
+  font-size: 13px;
+  color: var(--muted, #64748B);
+}
+
+/* Action Buttons */
+.action-section {
+  margin-bottom: 32px;
 }
 
 .retry-btn {
@@ -752,6 +875,10 @@ onUnmounted(() => {
 
   .graph-container {
     height: 300px;
+  }
+
+  .action-cards {
+    grid-template-columns: 1fr;
   }
 }
 </style>
