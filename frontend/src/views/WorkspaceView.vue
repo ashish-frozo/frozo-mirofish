@@ -55,16 +55,37 @@
           </header>
 
           <section class="report-body">
-            <div class="report-summary-card">
+            <!-- Actual report content -->
+            <div v-if="reportData && reportData.markdown_content" class="report-summary-card">
+              <div class="report-rendered-content" v-html="renderMarkdown(reportData.markdown_content)"></div>
+            </div>
+            <div v-else-if="reportData && reportData.outline" class="report-summary-card">
+              <h3 class="report-section-title">{{ reportData.title || 'Report Outline' }}</h3>
+              <p v-if="reportData.summary" class="report-summary-content">{{ reportData.summary }}</p>
+              <div v-for="(section, idx) in reportData.outline.sections" :key="idx" class="report-section-item">
+                <h4>{{ section.title }}</h4>
+              </div>
+            </div>
+            <div v-else class="report-summary-card">
               <h3 class="report-section-title">Executive Summary</h3>
               <div class="report-summary-content">
                 <p v-if="project?.step_data?.report_content">{{ project.step_data.report_content }}</p>
                 <p v-else class="report-placeholder">
-                  The prediction report is being compiled from simulation data.
-                  This workspace provides access to the knowledge graph, agent profiles,
-                  and raw simulation data generated during the prediction process.
+                  Report not yet available. Complete the simulation and report generation steps first.
                 </p>
               </div>
+            </div>
+
+            <!-- Download actions -->
+            <div v-if="reportData && project?.report_id" class="report-actions">
+              <button @click="downloadReport('md')" class="report-action-btn">
+                <span class="material-symbols-outlined">description</span>
+                Download Markdown
+              </button>
+              <button @click="downloadReport('html')" class="report-action-btn">
+                <span class="material-symbols-outlined">code</span>
+                Download HTML
+              </button>
             </div>
 
             <div class="report-stats-row">
@@ -78,7 +99,7 @@
               </div>
               <div class="report-stat-card">
                 <h4 class="report-stat-label">Simulation Rounds</h4>
-                <span class="report-stat-value">{{ project?.step_data?.num_rounds || '--' }}</span>
+                <span class="report-stat-value">{{ totalRounds }}</span>
               </div>
             </div>
           </section>
@@ -155,7 +176,7 @@
             <span class="chat-header__label">Active Persona</span>
             <h3 class="chat-header__agent">Report Agent</h3>
           </div>
-          <div class="chat-messages">
+          <div class="chat-messages" ref="chatMessagesEl">
             <div class="chat-message chat-message--agent">
               <div class="chat-message__avatar">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
@@ -167,6 +188,35 @@
                 </div>
               </div>
             </div>
+            <div
+              v-for="(msg, idx) in chatMessages"
+              :key="idx"
+              class="chat-message"
+              :class="msg.role === 'user' ? 'chat-message--user' : 'chat-message--agent'"
+            >
+              <div class="chat-message__avatar">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">
+                  {{ msg.role === 'user' ? 'person' : 'smart_toy' }}
+                </span>
+              </div>
+              <div class="chat-message__body">
+                <span class="chat-message__sender">{{ msg.role === 'user' ? 'You' : 'Report Agent' }}</span>
+                <div class="chat-message__bubble" :class="msg.role === 'user' ? 'chat-message__bubble--user' : 'chat-message__bubble--agent'">
+                  <p>{{ msg.content }}</p>
+                </div>
+              </div>
+            </div>
+            <div v-if="chatLoading" class="chat-message chat-message--agent">
+              <div class="chat-message__avatar">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+              </div>
+              <div class="chat-message__body">
+                <span class="chat-message__sender">Report Agent</span>
+                <div class="chat-message__bubble chat-message__bubble--agent">
+                  <p class="chat-typing">Thinking...</p>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="chat-input">
             <div class="chat-input__wrapper">
@@ -174,17 +224,17 @@
                 <span class="material-symbols-outlined">attach_file</span>
               </button>
               <input
+                v-model="chatInput"
                 type="text"
                 class="chat-input__field"
                 placeholder="Ask anything about this prediction..."
-                disabled
+                @keydown.enter="sendChat"
               />
-              <button class="chat-input__send" disabled>
+              <button class="chat-input__send" :disabled="!chatInput.trim() || chatLoading" @click="sendChat">
                 <span class="chat-input__send-label">Send</span>
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
               </button>
             </div>
-            <p class="chat-input__hint">Chat functionality will be connected in a future update.</p>
           </div>
         </div>
       </div>
@@ -223,16 +273,18 @@
         <span class="footer-divider"></span>
         <span>{{ graphData?.edges?.length || 0 }} relationships</span>
         <span class="footer-divider"></span>
-        <span>{{ project?.step_data?.num_rounds || 0 }} rounds</span>
+        <span>{{ totalRounds }} rounds</span>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, nextTick, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProject, getGraphData } from '../api/graph'
+import { getReport, chatWithReport, downloadReport as apiDownloadReport } from '../api/report'
+import service from '../api/index'
 import GraphPanel from '../components/GraphPanel.vue'
 
 const route = useRoute()
@@ -244,6 +296,11 @@ const graphData = ref(null)
 const agents = ref([])
 const activeTab = ref('report')
 const loading = ref(true)
+const reportData = ref(null)
+const chatInput = ref('')
+const chatMessages = ref([])
+const chatLoading = ref(false)
+const chatMessagesEl = ref(null)
 
 const tabs = [
   { id: 'report', label: 'Report', icon: 'description' },
@@ -271,6 +328,69 @@ const statusDotClass = computed(() => {
   if (status === 'simulating') return 'footer-status__dot--simulating'
   return 'footer-status__dot--default'
 })
+
+const totalRounds = computed(() => {
+  return project.value?.step_data?.rounds ||
+         project.value?.step_data?.num_rounds ||
+         graphData.value?.rounds ||
+         '--'
+})
+
+function renderMarkdown(md) {
+  if (!md) return ''
+  let html = md
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
+    .replace(/^- (.*$)/gm, '<li>$1</li>')
+    .replace(/\n\n/g, '</p><p>')
+  return '<p>' + html + '</p>'
+}
+
+async function downloadReport(format) {
+  try {
+    await apiDownloadReport(project.value.report_id, format)
+  } catch (e) {
+    console.error('Download failed:', e)
+  }
+}
+
+async function sendChat() {
+  if (!chatInput.value.trim() || chatLoading.value) return
+  const userMsg = chatInput.value.trim()
+  chatMessages.value.push({ role: 'user', content: userMsg })
+  chatInput.value = ''
+  chatLoading.value = true
+
+  await nextTick()
+  if (chatMessagesEl.value) {
+    chatMessagesEl.value.scrollTop = chatMessagesEl.value.scrollHeight
+  }
+
+  try {
+    const res = await chatWithReport({
+      simulation_id: project.value?.simulation_id,
+      message: userMsg,
+      chat_history: chatMessages.value.slice(0, -1),
+    })
+    if (res.response) {
+      chatMessages.value.push({ role: 'agent', content: res.response })
+    } else if (res.data?.response) {
+      chatMessages.value.push({ role: 'agent', content: res.data.response })
+    }
+  } catch (e) {
+    chatMessages.value.push({ role: 'agent', content: 'Sorry, I could not process your request.' })
+  } finally {
+    chatLoading.value = false
+    await nextTick()
+    if (chatMessagesEl.value) {
+      chatMessagesEl.value.scrollTop = chatMessagesEl.value.scrollHeight
+    }
+  }
+}
 
 function getInitials(name) {
   return name
@@ -300,12 +420,24 @@ onMounted(async () => {
         const gRes = await getGraphData(res.data.graph_id)
         if (gRes.success) graphData.value = gRes.data
       }
+      // Load report if report_id exists
+      if (res.data.report_id) {
+        try {
+          const reportRes = await getReport(res.data.report_id)
+          if (reportRes.success !== false) {
+            reportData.value = reportRes.data || reportRes
+          }
+        } catch (e) {
+          console.warn('Could not load report:', e.message)
+        }
+      }
       // Load agent profiles if simulation exists
       if (res.data.simulation_id) {
         try {
-          const { default: axios } = await import('axios')
-          const profileRes = await axios.get(`/api/simulation/${res.data.simulation_id}/profiles`)
-          if (profileRes.data?.profiles) {
+          const profileRes = await service.get(`/api/simulation/${res.data.simulation_id}/profiles`)
+          if (profileRes?.profiles) {
+            agents.value = profileRes.profiles
+          } else if (profileRes?.data?.profiles) {
             agents.value = profileRes.data.profiles
           }
         } catch (e) {
@@ -620,6 +752,98 @@ onMounted(async () => {
   font-style: italic;
 }
 
+.report-rendered-content {
+  line-height: 1.8;
+  color: #464555;
+}
+
+.report-rendered-content h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #191c1e;
+  margin: 32px 0 16px;
+}
+
+.report-rendered-content h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #191c1e;
+  margin: 28px 0 12px;
+}
+
+.report-rendered-content h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #191c1e;
+  margin: 24px 0 8px;
+}
+
+.report-rendered-content blockquote {
+  border-left: 3px solid #4f46e5;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+.report-rendered-content li {
+  margin-left: 20px;
+  margin-bottom: 4px;
+}
+
+.report-rendered-content strong {
+  color: #191c1e;
+}
+
+.report-section-item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.report-section-item:last-child {
+  border-bottom: none;
+}
+
+.report-section-item h4 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #191c1e;
+  margin: 0;
+}
+
+.report-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.report-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4f46e5;
+  background: rgba(79, 70, 229, 0.06);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.report-action-btn:hover {
+  background: rgba(79, 70, 229, 0.12);
+  transform: translateY(-1px);
+}
+
+.report-action-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
 .report-stats-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -900,10 +1124,39 @@ onMounted(async () => {
   border-radius: 12px;
 }
 
+.chat-message--user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.chat-message--user .chat-message__avatar {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.chat-message--user .chat-message__body {
+  align-items: flex-end;
+}
+
+.chat-message__bubble--user {
+  background: #4f46e5;
+  color: #fff;
+  border-top-right-radius: 0;
+}
+
+.chat-message__bubble--user p {
+  color: #fff;
+}
+
 .chat-message__bubble--agent {
   background: #fff;
   border-top-left-radius: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.chat-typing {
+  color: #94a3b8 !important;
+  font-style: italic;
 }
 
 .chat-message__bubble p {
@@ -967,7 +1220,15 @@ onMounted(async () => {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.chat-input__send:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-input__send:not(:disabled):hover {
+  background: #4338ca;
 }
 
 .chat-input__send-label {
