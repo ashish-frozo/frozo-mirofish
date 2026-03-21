@@ -65,6 +65,12 @@ const routes = [
     name: 'Interaction',
     component: InteractionView,
     props: true
+  },
+  {
+    path: '/predict/:taskId',
+    name: 'PredictionProgress',
+    component: () => import('../views/PredictionProgress.vue'),
+    props: true
   }
 ]
 

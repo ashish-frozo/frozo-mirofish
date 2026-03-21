@@ -2,9 +2,9 @@
   <div class="home-container">
     <!-- Top Navigation Bar -->
     <nav class="navbar">
-      <div class="nav-brand">MIROFISH</div>
+      <div class="nav-brand">FROZO</div>
       <div class="nav-links">
-        <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
+        <a href="https://github.com/666ghj/Frozo" target="_blank" class="github-link">
           Visit our GitHub <span class="arrow">↗</span>
         </a>
       </div>
@@ -26,7 +26,7 @@
 
           <div class=”hero-desc”>
             <p>
-              Even with just a piece of text, <span class=”highlight-bold”>MiroFish</span> can extract real-world seeds and auto-generate a parallel world with up to <span class=”highlight-orange”>millions of Agents</span>. Inject variables from a god's-eye view to find <span class=”highlight-code”>”local optima”</span> in complex group interactions under dynamic environments.
+              Even with just a piece of text, <span class=”highlight-bold”>Frozo</span> can extract real-world seeds and auto-generate a parallel world with up to <span class=”highlight-orange”>millions of Agents</span>. Inject variables from a god's-eye view to find <span class=”highlight-code”>”local optima”</span> in complex group interactions under dynamic environments.
             </p>
             <p class=”slogan-text”>
               Let the future rehearse among Agents; let decisions prevail after a thousand trials<span class=”blinking-cursor”>_</span>
@@ -39,7 +39,7 @@
         <div class="hero-right">
           <!-- Logo Area -->
           <div class="logo-container">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="MiroFish Logo" class="hero-logo" />
+            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="Frozo Logo" class="hero-logo" />
           </div>
           
           <button class="scroll-down-btn" @click="scrollToBottom">
@@ -180,21 +180,33 @@
                   rows="6"
                   :disabled="loading"
                 ></textarea>
-                <div class="model-badge">Engine: MiroFish-V1.0</div>
+                <div class="model-badge">Engine: Frozo-V1.0</div>
               </div>
             </div>
 
-            <!-- Launch Button -->
+            <!-- Launch Buttons -->
             <div class="console-section btn-section">
-              <button 
-                class="start-engine-btn"
-                @click="startSimulation"
-                :disabled="!canSubmit || loading"
-              >
-                <span v-if="!loading">Launch Engine</span>
-                <span v-else>Initializing...</span>
-                <span class="btn-arrow">→</span>
-              </button>
+              <div class="btn-group">
+                <button
+                  class="start-engine-btn"
+                  @click="startSimulation"
+                  :disabled="!canSubmit || loading"
+                >
+                  <span v-if="!loading">Launch Engine</span>
+                  <span v-else>Initializing...</span>
+                  <span class="btn-arrow">&rarr;</span>
+                </button>
+                <button
+                  class="predict-btn"
+                  @click="startOneClickPredict"
+                  :disabled="!canSubmit || predicting"
+                >
+                  <span v-if="!predicting">One-Click Predict</span>
+                  <span v-else>Starting...</span>
+                  <span class="btn-arrow">&rarr;</span>
+                </button>
+              </div>
+              <div class="btn-hint">One-Click Predict runs all 5 steps automatically</div>
             </div>
           </div>
         </div>
@@ -232,6 +244,7 @@ const files = ref([])
 
 // State
 const loading = ref(false)
+const predicting = ref(false)
 const error = ref('')
 const isDragOver = ref(false)
 
@@ -295,6 +308,26 @@ const scrollToBottom = () => {
     top: document.body.scrollHeight,
     behavior: 'smooth'
   })
+}
+
+// One-Click Predict - upload files and start full prediction pipeline
+const startOneClickPredict = async () => {
+  if (!canSubmit.value || predicting.value) return
+
+  predicting.value = true
+  try {
+    const { startPrediction } = await import('../api/predict.js')
+    const fd = new FormData()
+    files.value.forEach(file => fd.append('files', file))
+    fd.append('simulation_requirement', formData.value.simulationRequirement)
+
+    const res = await startPrediction(fd)
+    const taskId = res.data.task_id
+    router.push({ name: 'PredictionProgress', params: { taskId } })
+  } catch (err) {
+    error.value = err.message || 'Failed to start prediction'
+    predicting.value = false
+  }
 }
 
 // Start simulation - navigate immediately, API calls happen on the Process page
@@ -867,6 +900,61 @@ const startSimulation = () => {
   cursor: not-allowed;
   transform: none;
   border: 1px solid #E5E5E5;
+}
+
+/* Button group for Launch + One-Click Predict */
+.btn-group {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-group .start-engine-btn {
+  flex: 1;
+}
+
+.predict-btn {
+  flex: 1;
+  background: var(--orange);
+  color: var(--white);
+  border: 1px solid var(--orange);
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+.predict-btn:hover:not(:disabled) {
+  background: #e63e00;
+  border-color: #e63e00;
+  transform: translateY(-2px);
+}
+
+.predict-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.predict-btn:disabled {
+  background: #E5E5E5;
+  color: #999;
+  cursor: not-allowed;
+  transform: none;
+  border: 1px solid #E5E5E5;
+}
+
+.btn-hint {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #AAA;
+  text-align: right;
 }
 
 /* Guide animation: subtle border pulse */
