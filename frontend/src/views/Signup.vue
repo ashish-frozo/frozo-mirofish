@@ -117,52 +117,56 @@ async function handleSignup() {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
 .auth-page {
   min-height: 100vh;
-  background: #0a0a1a;
+  background: #F8FAFC;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
-  background: #12122a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  max-width: 400px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
   padding: 40px 36px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 24px rgba(79, 70, 229, 0.08);
 }
 
 .auth-brand {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: 2px;
-  color: #fff;
-  margin-bottom: 32px;
+  font-size: 1.5rem;
+  letter-spacing: 1.5px;
+  color: #4F46E5;
+  margin-bottom: 28px;
 }
 
 .auth-title {
-  font-size: 1.6rem;
-  font-weight: 600;
-  color: #f0f0f0;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0F172A;
   margin: 0 0 8px 0;
 }
 
 .auth-subtitle {
   font-size: 0.9rem;
-  color: #6b6b8a;
+  color: #64748B;
   margin: 0 0 28px 0;
+  line-height: 1.5;
 }
 
 .auth-error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
   padding: 10px 14px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -184,7 +188,7 @@ async function handleSignup() {
 .form-label {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #9393b0;
+  color: #64748B;
   letter-spacing: 0.3px;
   display: flex;
   align-items: center;
@@ -193,40 +197,40 @@ async function handleSignup() {
 
 .label-hint {
   font-size: 0.75rem;
-  color: #5a5a7a;
+  color: #94A3B8;
   font-weight: 400;
   transition: color 0.2s;
 }
 
 .label-hint.valid {
-  color: #4ade80;
+  color: #16A34A;
 }
 
 .form-input {
-  background: #1a1a34;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
   padding: 12px 14px;
   font-size: 0.95rem;
-  color: #e0e0f0;
+  color: #0F172A;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   font-family: inherit;
 }
 
 .form-input::placeholder {
-  color: #4a4a6a;
+  color: #94A3B8;
 }
 
 .form-input:focus {
-  border-color: #4a7cff;
-  box-shadow: 0 0 0 3px rgba(74, 124, 255, 0.15);
+  border-color: #4F46E5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
 .auth-btn {
   margin-top: 4px;
-  background: #4a7cff;
-  color: #fff;
+  background: #4F46E5;
+  color: #FFFFFF;
   border: none;
   border-radius: 8px;
   padding: 13px;
@@ -238,7 +242,7 @@ async function handleSignup() {
 }
 
 .auth-btn:hover:not(:disabled) {
-  background: #3a6aee;
+  background: #4338CA;
 }
 
 .auth-btn:disabled {
@@ -256,11 +260,11 @@ async function handleSignup() {
   text-align: center;
   margin-top: 28px;
   font-size: 0.85rem;
-  color: #6b6b8a;
+  color: #64748B;
 }
 
 .auth-link {
-  color: #4a7cff;
+  color: #4F46E5;
   text-decoration: none;
   font-weight: 500;
 }
