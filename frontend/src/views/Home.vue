@@ -2,7 +2,7 @@
   <div class="home-container">
     <!-- Top Navigation Bar -->
     <nav class="navbar">
-      <div class="nav-brand">FROZO</div>
+      <div class="nav-brand">AUGUR</div>
       <div class="nav-links">
         <a href="https://github.com/666ghj/Frozo" target="_blank" class="github-link">
           Visit our GitHub <span class="arrow">↗</span>
@@ -26,7 +26,7 @@
 
           <div class=”hero-desc”>
             <p>
-              Even with just a piece of text, <span class=”highlight-bold”>Frozo</span> can extract real-world seeds and auto-generate a parallel world with up to <span class=”highlight-orange”>millions of Agents</span>. Inject variables from a god's-eye view to find <span class=”highlight-code”>”local optima”</span> in complex group interactions under dynamic environments.
+              Even with just a piece of text, <span class=”highlight-bold”>Augur</span> can extract real-world seeds and auto-generate a parallel world with up to <span class=”highlight-orange”>millions of Agents</span>. Inject variables from a god's-eye view to find <span class=”highlight-code”>”local optima”</span> in complex group interactions under dynamic environments.
             </p>
             <p class=”slogan-text”>
               Let the future rehearse among Agents; let decisions prevail after a thousand trials<span class=”blinking-cursor”>_</span>
@@ -39,7 +39,7 @@
         <div class="hero-right">
           <!-- Logo Area -->
           <div class="logo-container">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="Frozo Logo" class="hero-logo" />
+            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="Augur Logo" class="hero-logo" />
           </div>
           
           <button class="scroll-down-btn" @click="scrollToBottom">
@@ -180,7 +180,7 @@
                   rows="6"
                   :disabled="loading"
                 ></textarea>
-                <div class="model-badge">Engine: Frozo-V1.0</div>
+                <div class="model-badge">Engine: Augur-V1.0</div>
               </div>
             </div>
 
