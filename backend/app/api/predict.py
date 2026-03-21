@@ -30,7 +30,7 @@ def start_prediction():
     """
     try:
         user = g.current_user
-        user_id = str(user.id)
+        user_id = user.id  # Keep as UUID, don't convert to string
 
         # Get form data
         files = request.files.getlist('files')
