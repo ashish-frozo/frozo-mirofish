@@ -432,22 +432,22 @@ async function handleCancel() {
 
 function goToReport() {
   const result = data.result
-  if (result?.report_id) {
-    router.push({ name: 'Report', params: { reportId: result.report_id } })
+  if (result?.project_id) {
+    router.push(`/workspace/${result.project_id}`)
   }
 }
 
 function goToInteraction() {
   const result = data.result
-  if (result?.report_id) {
-    router.push({ name: 'Interaction', params: { reportId: result.report_id } })
+  if (result?.project_id) {
+    router.push(`/workspace/${result.project_id}`)
   }
 }
 
 function goToProject() {
   const result = data.result
   if (result?.project_id) {
-    router.push({ name: 'Process', params: { projectId: result.project_id } })
+    router.push(`/workspace/${result.project_id}`)
   }
 }
 
