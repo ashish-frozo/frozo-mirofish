@@ -28,3 +28,31 @@ html { scroll-behavior: smooth; }
 .nav-scrolled {
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
+
+/* Editorial shadow for Stitch design cards */
+.editorial-shadow {
+    box-shadow: 0 20px 40px rgba(79, 70, 229, 0.06);
+}
+
+/* Glassmorphism header */
+.glass-header {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+}
+
+/* FAQ details marker removal */
+details summary::-webkit-details-marker {
+    display: none;
+}
+details summary::marker {
+    display: none;
+    content: '';
+}
+
+/* Smooth open/close for details elements */
+details[open] summary .material-symbols-outlined {
+    transform: rotate(180deg);
+}
+details summary .material-symbols-outlined {
+    transition: transform 0.3s ease;
+}
