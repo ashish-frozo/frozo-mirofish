@@ -63,15 +63,46 @@ def generate_report():
 
         force_regenerate = data.get('force_regenerate', False)
 
-        # Get simulation info
-        manager = SimulationManager()
-        state = manager.get_simulation(simulation_id)
+        # Get simulation info — try DB first, then fall back to file-based manager
+        graph_id = None
+        project_id = None
+        simulation_requirement = None
+        sim_state = None
 
-        if not state:
-            return jsonify({
-                "success": False,
-                "error": f"Simulation not found: {simulation_id}"
-            }), 404
+        with get_db() as session:
+            sim_repo = SimulationRepository(session)
+            db_sim = sim_repo.get_by_simulation_id(simulation_id)
+            if db_sim:
+                from ..repositories.project_repo import ProjectRepository
+                proj_repo = ProjectRepository(session)
+                db_project = proj_repo.get_by_id(db_sim.project_id)
+                graph_id = db_project.graph_id if db_project else ''
+                simulation_requirement = db_project.simulation_requirement if db_project else ''
+                project_id = str(db_sim.project_id)
+                sim_state = db_sim
+
+        if not sim_state:
+            # Fallback to file-based manager for legacy simulations
+            manager = SimulationManager()
+            state = manager.get_simulation(simulation_id)
+            if not state:
+                return jsonify({
+                    "success": False,
+                    "error": f"Simulation not found: {simulation_id}"
+                }), 404
+            project_id = state.project_id
+            graph_id = state.graph_id
+            simulation_requirement = None
+
+            # Get project info for legacy path
+            project = ProjectManager.get_project(project_id)
+            if not project:
+                return jsonify({
+                    "success": False,
+                    "error": f"Project not found: {project_id}"
+                }), 404
+            graph_id = state.graph_id or project.graph_id
+            simulation_requirement = project.simulation_requirement
 
         # Check if report already exists
         if not force_regenerate:
@@ -88,22 +119,12 @@ def generate_report():
                     }
                 })
 
-        # Get project info
-        project = ProjectManager.get_project(state.project_id)
-        if not project:
-            return jsonify({
-                "success": False,
-                "error": f"Project not found: {state.project_id}"
-            }), 404
-
-        graph_id = state.graph_id or project.graph_id
         if not graph_id:
             return jsonify({
                 "success": False,
                 "error": "Missing graph ID. Please ensure the graph has been built."
             }), 400
 
-        simulation_requirement = project.simulation_requirement
         if not simulation_requirement:
             return jsonify({
                 "success": False,
@@ -135,7 +156,7 @@ def generate_report():
                 sim_repo = SimulationRepository(session)
                 sim_row = sim_repo.get_by_simulation_id(simulation_id)
                 db_report = report_repo.create(
-                    project_id=sim_row.project_id if sim_row else state.project_id,
+                    project_id=sim_row.project_id if sim_row else project_id,
                     simulation_id=sim_row.id if sim_row else None,
                     graph_id=graph_id,
                     simulation_requirement=simulation_requirement,
@@ -596,31 +617,46 @@ def chat_with_report_agent():
                 "error": "Please provide message"
             }), 400
 
-        # Get simulation and project info
-        manager = SimulationManager()
-        state = manager.get_simulation(simulation_id)
+        # Get simulation and project info — try DB first, then fall back to file-based manager
+        graph_id = None
+        simulation_requirement = ""
+        sim_state = None
 
-        if not state:
-            return jsonify({
-                "success": False,
-                "error": f"Simulation not found: {simulation_id}"
-            }), 404
+        with get_db() as session:
+            sim_repo = SimulationRepository(session)
+            db_sim = sim_repo.get_by_simulation_id(simulation_id)
+            if db_sim:
+                from ..repositories.project_repo import ProjectRepository
+                proj_repo = ProjectRepository(session)
+                db_project = proj_repo.get_by_id(db_sim.project_id)
+                graph_id = db_project.graph_id if db_project else ''
+                simulation_requirement = (db_project.simulation_requirement or '') if db_project else ''
+                sim_state = db_sim
 
-        project = ProjectManager.get_project(state.project_id)
-        if not project:
-            return jsonify({
-                "success": False,
-                "error": f"Project not found: {state.project_id}"
-            }), 404
+        if not sim_state:
+            # Fallback to file-based manager for legacy simulations
+            manager = SimulationManager()
+            state = manager.get_simulation(simulation_id)
+            if not state:
+                return jsonify({
+                    "success": False,
+                    "error": f"Simulation not found: {simulation_id}"
+                }), 404
 
-        graph_id = state.graph_id or project.graph_id
+            project = ProjectManager.get_project(state.project_id)
+            if not project:
+                return jsonify({
+                    "success": False,
+                    "error": f"Project not found: {state.project_id}"
+                }), 404
+            graph_id = state.graph_id or project.graph_id
+            simulation_requirement = project.simulation_requirement or ""
+
         if not graph_id:
             return jsonify({
                 "success": False,
                 "error": "Missing graph ID"
             }), 400
-
-        simulation_requirement = project.simulation_requirement or ""
 
         # Create Agent and conduct conversation
         agent = ReportAgent(
