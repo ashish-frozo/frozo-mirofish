@@ -263,7 +263,12 @@ const updatePhaseByStatus = (status) => {
     case 'created':
     case 'ontology_generated': currentPhase.value = 0; break;
     case 'graph_building': currentPhase.value = 1; break;
-    case 'graph_completed': currentPhase.value = 2; break;
+    case 'graph_completed':
+    case 'env_setup': currentPhase.value = 2; break;
+    case 'simulating': currentPhase.value = 3; break;
+    case 'reporting': currentPhase.value = 4; break;
+    case 'interacting':
+    case 'completed': currentPhase.value = 5; break;
     case 'failed': error.value = 'Project failed'; break;
   }
 }
