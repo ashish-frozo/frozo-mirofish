@@ -115,6 +115,9 @@ def create_app(config_class=Config):
     app.register_blueprint(billing_bp, url_prefix='/api/billing')
     app.register_blueprint(predict_bp, url_prefix='/api/predict')
 
+    from .api.crawl_import import crawl_import_bp
+    app.register_blueprint(crawl_import_bp, url_prefix='/api/predict')
+
     # Health check
     @app.route('/health')
     def health():
