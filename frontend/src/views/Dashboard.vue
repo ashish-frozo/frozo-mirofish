@@ -257,11 +257,10 @@
       <!-- Footer -->
       <footer class="dashboard-footer">
         <div class="dashboard-footer__inner">
-          <p class="dashboard-footer__copy">&copy; 2024 Augur AI. All rights reserved.</p>
+          <p class="dashboard-footer__copy">&copy; 2026 Augur AI. All rights reserved.</p>
           <div class="dashboard-footer__links">
-            <a href="#">System Status</a>
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
+            <a href="mailto:mirofish@shanda.com">Contact</a>
+            <a href="https://github.com/666ghj/MiroFish" target="_blank" rel="noopener">GitHub</a>
           </div>
         </div>
       </footer>
