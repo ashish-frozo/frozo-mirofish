@@ -23,7 +23,7 @@ def utcnow():
 
 
 def trial_default():
-    return datetime.now(timezone.utc) + timedelta(days=14)
+    return datetime.now(timezone.utc) + timedelta(days=4)
 
 
 # ---------------------------------------------------------------------------

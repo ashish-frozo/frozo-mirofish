@@ -20,7 +20,7 @@
           <h3 class="plan-card__name">Trial</h3>
           <div class="plan-card__price">
             <span class="plan-card__amount">Free</span>
-            <span class="plan-card__period">14 days</span>
+            <span class="plan-card__period">4 days</span>
           </div>
           <ul class="plan-card__features">
             <li><span class="material-symbols-outlined feat-icon">check</span> 3 simulations / month</li>

@@ -30,7 +30,7 @@ class UserRepository:
             password_hash=_hash_password(password),
             auth_provider="email",
             plan="trial",
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=4),
         )
         self.session.add(user)
         self.session.flush()
@@ -79,7 +79,7 @@ class UserRepository:
                     auth_provider="google",
                     avatar_url=avatar_url,
                     plan="trial",
-                    trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+                    trial_ends_at=datetime.now(timezone.utc) + timedelta(days=4),
                 )
                 self.session.add(user)
         self.session.flush()
