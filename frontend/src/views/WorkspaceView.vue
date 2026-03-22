@@ -332,6 +332,11 @@
           <p class="tab-empty__sub">Timeline view with agent interactions grouped by round and platform.</p>
         </div>
       </div>
+
+      <!-- ===== Accuracy Tab ===== -->
+      <div v-else-if="activeTab === 'accuracy'" class="tab-content tab-accuracy">
+        <AccuracyDashboard />
+      </div>
     </main>
 
     <!-- Footer Status Bar -->
@@ -360,6 +365,7 @@ import { getReport, chatWithReport, downloadReport as apiDownloadReport } from '
 import { getSimulationPosts, getSimulationTimeline } from '../api/simulation'
 import service from '../api/index'
 import GraphPanel from '../components/GraphPanel.vue'
+import AccuracyDashboard from '../components/AccuracyDashboard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -390,6 +396,7 @@ const tabs = [
   { id: 'agents', label: 'Agents', icon: 'smart_toy' },
   { id: 'chat', label: 'Chat', icon: 'forum' },
   { id: 'data', label: 'Raw Data', icon: 'database' },
+  { id: 'accuracy', label: 'Accuracy', icon: 'verified' },
 ]
 
 const agentColors = [
