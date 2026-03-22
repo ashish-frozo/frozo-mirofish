@@ -114,6 +114,15 @@
         </div>
       </section>
 
+      <!-- Email Notification Banner -->
+      <div v-if="data.status === 'running'" class="email-notice">
+        <span class="material-symbols-outlined email-notice__icon" style="font-variation-settings: 'FILL' 1;">mail</span>
+        <div class="email-notice__text">
+          <strong>You don't need to wait here.</strong>
+          We'll email you the full prediction report once it's ready. Feel free to close this page.
+        </div>
+      </div>
+
       <!-- Error Card -->
       <div class="error-card" v-if="data.status === 'failed' && data.error">
         <div class="error-card__icon">
@@ -742,6 +751,33 @@ onUnmounted(() => {
 }
 
 /* ── Error Card ── */
+.email-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(79, 70, 229, 0.06);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.email-notice__icon {
+  font-size: 22px;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.email-notice__text {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #464555;
+}
+
+.email-notice__text strong {
+  color: #191c1e;
+}
+
 .error-card {
   display: flex;
   align-items: flex-start;

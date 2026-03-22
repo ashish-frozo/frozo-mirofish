@@ -357,6 +357,26 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         stages["report"] = {"status": "completed", "report_id": report_id}
         stages["interaction"] = {"status": "ready"}
 
+        # ==================== SEND EMAIL NOTIFICATION ====================
+        try:
+            from ..services.email_service import send_report_email
+            from ..repositories.user_repo import UserRepository
+
+            with get_db() as session:
+                user_repo = UserRepository(session)
+                user = user_repo.get_by_id(user_id)
+                if user and user.email:
+                    markdown_content = report.markdown_content if report else None
+                    send_report_email(
+                        to_email=user.email,
+                        user_name=user.name or '',
+                        project_name=simulation_requirement[:100],
+                        project_id=project_id,
+                        markdown_content=markdown_content,
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to send report email: {e}")
+
         # ==================== COMPLETE ====================
         with get_db() as session:
             task_repo = TaskRepository(session)
