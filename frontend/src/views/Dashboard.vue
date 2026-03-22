@@ -59,7 +59,7 @@
         <!-- Greeting Section -->
         <div class="greeting-section">
           <h1 class="greeting-title">Welcome back, {{ auth.user?.name || 'User' }}</h1>
-          <p class="greeting-subtitle">Architecting the future through recursive data logic.</p>
+          <p class="greeting-subtitle">Your AI prediction workspace.</p>
         </div>
 
         <!-- Upgrade Banner -->
@@ -93,10 +93,10 @@
                   <span class="material-symbols-outlined">add</span>
                 </div>
                 <h3 class="new-prediction-card__title">New Prediction</h3>
-                <p class="new-prediction-card__desc">Start new analysis and map the next intelligence frontier.</p>
+                <p class="new-prediction-card__desc">Upload documents and run a swarm intelligence simulation.</p>
               </div>
               <div class="new-prediction-card__cta">
-                INITIALIZE AGENT
+                START PREDICTION
                 <span class="material-symbols-outlined new-prediction-card__arrow">arrow_forward</span>
               </div>
             </div>
@@ -107,7 +107,7 @@
           <div class="status-summary">
             <div class="status-summary__stats">
               <div>
-                <p class="stat-label">Active Nodes</p>
+                <p class="stat-label">In Progress</p>
                 <p class="stat-value stat-value--primary">{{ runningCount }}</p>
               </div>
               <div>

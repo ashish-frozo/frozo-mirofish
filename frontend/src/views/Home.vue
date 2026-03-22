@@ -121,7 +121,7 @@
               <span v-if="!predicting" class="material-symbols-outlined submit-btn__icon">auto_awesome</span>
               <span v-else class="spinner"></span>
             </button>
-            <p class="action-hint">Estimated processing time: ~45 seconds</p>
+            <p class="action-hint">Processing typically takes 3-10 minutes. We'll email you when it's ready.</p>
           </div>
 
           <!-- Error Message -->
