@@ -403,3 +403,90 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# BettaFish Integration Endpoints
+# ---------------------------------------------------------------------------
+
+@predict_bp.route('/validation-result', methods=['POST'])
+def receive_validation_result():
+    """Webhook: receive validation result from BettaFish."""
+    from ..middleware.service_auth import service_auth_required as _svc_auth
+
+    # Manual auth check (can't stack decorators easily on this route)
+    service_key = request.headers.get('X-Service-Key', '')
+    if not Config.BETTAFISH_SERVICE_KEY or service_key != Config.BETTAFISH_SERVICE_KEY:
+        return jsonify({"success": False, "error": "Invalid service key"}), 401
+
+    from ..models.prediction_validation import PredictionValidationModel
+
+    data = request.get_json(silent=True) or {}
+    prediction_id = data.get("prediction_id")
+
+    if not prediction_id:
+        return jsonify({"success": False, "error": "prediction_id required"}), 400
+
+    try:
+        with get_db() as session:
+            task_repo = TaskRepository(session)
+            task = task_repo.get_by_id(prediction_id)
+            user_id = task.user_id if task else None
+
+            validation = PredictionValidationModel(
+                prediction_task_id=prediction_id,
+                user_id=user_id,
+                bettafish_prediction_id=data.get("bettafish_prediction_id"),
+                accuracy_score=data.get("accuracy_score"),
+                actual_sentiment=data.get("actual_sentiment"),
+                actual_trajectory=data.get("actual_trajectory"),
+                per_prediction=data.get("per_prediction"),
+                validated_at=data.get("validated_at"),
+            )
+            session.add(validation)
+
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        logger.error(f"Failed to store validation result: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@predict_bp.route('/accuracy', methods=['GET'])
+@require_auth
+def get_accuracy():
+    """Get prediction accuracy dashboard data."""
+    from ..models.prediction_validation import PredictionValidationModel
+
+    try:
+        with get_db() as session:
+            validations = session.query(PredictionValidationModel).filter(
+                PredictionValidationModel.user_id == g.current_user.id
+            ).order_by(PredictionValidationModel.created_at.desc()).all()
+
+            completed = [v for v in validations if v.accuracy_score is not None]
+
+            overall = (
+                sum(v.accuracy_score for v in completed) / len(completed)
+                if completed else 0
+            )
+
+            return jsonify({
+                "success": True,
+                "data": {
+                    "overall_accuracy": round(overall),
+                    "total_predictions": len(validations),
+                    "validated_count": len(completed),
+                    "recent_validations": [
+                        {
+                            "prediction_task_id": str(v.prediction_task_id),
+                            "accuracy_score": v.accuracy_score,
+                            "validated_at": v.validated_at.isoformat() if v.validated_at else None,
+                            "per_prediction": v.per_prediction,
+                        }
+                        for v in completed[:10]
+                    ],
+                }
+            })
+    except Exception as e:
+        logger.error(f"Failed to get accuracy data: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
