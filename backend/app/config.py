@@ -90,6 +90,9 @@ class Config:
     NEO4J_USER = os.environ.get('NEO4J_USER', 'neo4j')
     NEO4J_PASSWORD = os.environ.get('NEO4J_PASSWORD', 'password')
 
+    # BettaFish Integration
+    BETTAFISH_SERVICE_KEY = os.environ.get('BETTAFISH_SERVICE_KEY', '')
+
     @classmethod
     def validate(cls):
         """Validate required configuration"""
