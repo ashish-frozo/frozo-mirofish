@@ -248,19 +248,88 @@
         <div class="data-header">
           <h3 class="data-title">Raw Simulation Data</h3>
           <div class="data-filters">
+            <span v-if="rawDataTotal > 0" class="data-count">{{ rawDataTotal }} posts</span>
             <div class="data-filter-group">
-              <button class="data-filter-btn data-filter-btn--active">Both</button>
-              <button class="data-filter-btn">Twitter</button>
-              <button class="data-filter-btn">Reddit</button>
+              <button
+                class="data-filter-btn"
+                :class="{ 'data-filter-btn--active': rawDataPlatform === 'both' }"
+                @click="setDataPlatform('both')"
+              >Both</button>
+              <button
+                class="data-filter-btn"
+                :class="{ 'data-filter-btn--active': rawDataPlatform === 'twitter' }"
+                @click="setDataPlatform('twitter')"
+              >Twitter</button>
+              <button
+                class="data-filter-btn"
+                :class="{ 'data-filter-btn--active': rawDataPlatform === 'reddit' }"
+                @click="setDataPlatform('reddit')"
+              >Reddit</button>
             </div>
           </div>
         </div>
-        <div class="data-timeline">
-          <div class="tab-empty">
-            <span class="material-symbols-outlined tab-empty__icon">table_chart</span>
-            <p>Raw simulation data will appear here after a simulation completes.</p>
-            <p class="tab-empty__sub">Timeline view with agent interactions grouped by round and platform.</p>
+
+        <!-- Timeline Summary -->
+        <div v-if="rawDataTimeline.length > 0" class="data-timeline-summary">
+          <div
+            v-for="(round, idx) in rawDataTimeline"
+            :key="idx"
+            class="data-round-chip"
+          >
+            <span class="data-round-chip__label">Round {{ round.round ?? idx + 1 }}</span>
+            <span class="data-round-chip__count">{{ round.action_count || round.post_count || '--' }} actions</span>
           </div>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="rawDataLoading" class="data-loading">
+          <span class="material-symbols-outlined data-loading__icon">hourglass_top</span>
+          <p>Loading simulation data...</p>
+        </div>
+
+        <!-- Posts List -->
+        <div v-else-if="rawDataPosts.length > 0" class="data-posts">
+          <div
+            v-for="(post, idx) in rawDataPosts"
+            :key="idx"
+            class="data-post-card"
+          >
+            <div class="data-post-card__header">
+              <span class="data-post-card__platform" :class="'data-post-card__platform--' + post._platform">
+                {{ post._platform }}
+              </span>
+              <span v-if="post.round_num != null" class="data-post-card__round">Round {{ post.round_num }}</span>
+              <span class="data-post-card__agent">{{ post.user_name || post.agent_name || post.author || 'Agent' }}</span>
+            </div>
+            <p class="data-post-card__content">{{ post.content || post.text || post.body || '' }}</p>
+            <div class="data-post-card__meta">
+              <span v-if="post.likes != null || post.like_count != null">
+                <span class="material-symbols-outlined" style="font-size: 14px;">favorite</span>
+                {{ post.likes ?? post.like_count ?? 0 }}
+              </span>
+              <span v-if="post.comments != null || post.comment_count != null">
+                <span class="material-symbols-outlined" style="font-size: 14px;">chat_bubble</span>
+                {{ post.comments ?? post.comment_count ?? 0 }}
+              </span>
+              <span v-if="post.created_at" class="data-post-card__time">
+                {{ typeof post.created_at === 'number' ? new Date(post.created_at * 1000).toLocaleString() : post.created_at }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="rawDataLoaded" class="tab-empty">
+          <span class="material-symbols-outlined tab-empty__icon">table_chart</span>
+          <p>No simulation data found for this project.</p>
+          <p class="tab-empty__sub">Run a simulation first to generate agent interaction data.</p>
+        </div>
+
+        <!-- Not yet loaded -->
+        <div v-else class="tab-empty">
+          <span class="material-symbols-outlined tab-empty__icon">table_chart</span>
+          <p>Raw simulation data will appear here after a simulation completes.</p>
+          <p class="tab-empty__sub">Timeline view with agent interactions grouped by round and platform.</p>
         </div>
       </div>
     </main>
@@ -284,10 +353,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed } from 'vue'
+import { ref, nextTick, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProject, getGraphData } from '../api/graph'
 import { getReport, chatWithReport, downloadReport as apiDownloadReport } from '../api/report'
+import { getSimulationPosts, getSimulationTimeline } from '../api/simulation'
 import service from '../api/index'
 import GraphPanel from '../components/GraphPanel.vue'
 
@@ -305,6 +375,14 @@ const chatInput = ref('')
 const chatMessages = ref([])
 const chatLoading = ref(false)
 const chatMessagesEl = ref(null)
+
+// Raw Data tab state
+const rawDataPlatform = ref('both')
+const rawDataPosts = ref([])
+const rawDataTimeline = ref([])
+const rawDataLoading = ref(false)
+const rawDataTotal = ref(0)
+const rawDataLoaded = ref(false)
 
 const tabs = [
   { id: 'report', label: 'Report', icon: 'description' },
@@ -406,6 +484,58 @@ function truncate(text, maxLen) {
   if (!text) return ''
   return text.length > maxLen ? text.slice(0, maxLen) + '...' : text
 }
+
+async function loadRawData() {
+  const simId = project.value?.simulation_id
+  if (!simId || rawDataLoading.value) return
+  rawDataLoading.value = true
+  rawDataPosts.value = []
+  rawDataTimeline.value = []
+  rawDataTotal.value = 0
+  try {
+    const platforms = rawDataPlatform.value === 'both'
+      ? ['twitter', 'reddit']
+      : [rawDataPlatform.value]
+    const allPosts = []
+    for (const p of platforms) {
+      const res = await getSimulationPosts(simId, p, 100, 0)
+      const posts = res?.data?.posts || res?.posts || []
+      allPosts.push(...posts.map(post => ({ ...post, _platform: p })))
+      rawDataTotal.value += res?.data?.total || posts.length
+    }
+    // Sort by created_at descending
+    allPosts.sort((a, b) => {
+      const ta = a.created_at || a.timestamp || 0
+      const tb = b.created_at || b.timestamp || 0
+      return tb - ta
+    })
+    rawDataPosts.value = allPosts
+
+    // Also load timeline
+    try {
+      const tlRes = await getSimulationTimeline(simId)
+      rawDataTimeline.value = tlRes?.data?.timeline || []
+    } catch { /* timeline optional */ }
+  } catch (e) {
+    console.warn('Could not load raw data:', e.message)
+  } finally {
+    rawDataLoading.value = false
+    rawDataLoaded.value = true
+  }
+}
+
+function setDataPlatform(platform) {
+  rawDataPlatform.value = platform
+  rawDataLoaded.value = false
+  loadRawData()
+}
+
+// Load raw data when switching to data tab
+watch(activeTab, (tab) => {
+  if (tab === 'data' && !rawDataLoaded.value && project.value?.simulation_id) {
+    loadRawData()
+  }
+})
 
 function goBack() {
   router.push('/dashboard')
@@ -1306,6 +1436,146 @@ onMounted(async () => {
 
 .data-filter-btn:hover:not(.data-filter-btn--active) {
   background: rgba(255, 255, 255, 0.5);
+}
+
+.data-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #777587;
+  margin-right: 12px;
+}
+
+.data-filters {
+  display: flex;
+  align-items: center;
+}
+
+.data-timeline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.data-round-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: #fff;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.data-round-chip__label {
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.data-round-chip__count {
+  color: #777587;
+}
+
+.data-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #777587;
+  gap: 12px;
+}
+
+.data-loading__icon {
+  font-size: 36px;
+  animation: spin 1.5s linear infinite;
+}
+
+.data-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.data-post-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.04);
+  transition: transform 0.15s;
+}
+
+.data-post-card:hover {
+  transform: translateY(-2px);
+}
+
+.data-post-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.data-post-card__platform {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e0e3e5;
+  color: #464555;
+}
+
+.data-post-card__platform--twitter {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.data-post-card__platform--reddit {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.data-post-card__round {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #777587;
+}
+
+.data-post-card__agent {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #191c1e;
+  margin-left: auto;
+}
+
+.data-post-card__content {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: #464555;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.data-post-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: #777587;
+}
+
+.data-post-card__meta > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.data-post-card__time {
+  margin-left: auto;
 }
 
 /* ========================================
