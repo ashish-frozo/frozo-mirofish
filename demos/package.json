@@ -1,0 +1,22 @@
+{
+  "name": "augur-demos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "render:all": "npm run render:graph && npm run render:simulation && npm run render:report",
+    "render:graph": "remotion render src/index.tsx KnowledgeGraph --output ../static/demos/knowledge-graph.mp4",
+    "render:simulation": "remotion render src/index.tsx SwarmSimulation --output ../static/demos/swarm-simulation.mp4",
+    "render:report": "remotion render src/index.tsx ReportGeneration --output ../static/demos/report-generation.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.5.0"
+  }
+}
