@@ -221,7 +221,7 @@ def handle_webhook():
 @billing_bp.route('/status', methods=['GET'])
 @require_auth
 def get_billing_status():
-    """Get current user's billing and plan status."""
+    """Get current user's billing and plan status, including usage stats."""
     user = g.current_user
     now = datetime.now(timezone.utc)
 
@@ -239,6 +239,22 @@ def get_billing_status():
 
     plan_limits = PLAN_LIMITS.get(user.plan, PLAN_LIMITS['trial'])
 
+    # Usage stats: count simulations this month
+    simulations_used = 0
+    try:
+        from sqlalchemy import func
+        from ..models.db_models import SimulationModel, ProjectModel as PM
+        with get_db() as session:
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            simulations_used = session.query(func.count(SimulationModel.id)).filter(
+                SimulationModel.project_id.in_(
+                    session.query(PM.id).filter(PM.user_id == user.id)
+                ),
+                SimulationModel.created_at >= month_start,
+            ).scalar() or 0
+    except Exception:
+        pass
+
     return jsonify({
         "success": True,
         "plan": user.plan,
@@ -249,4 +265,8 @@ def get_billing_status():
         "current_period_end": user.current_period_end.isoformat() if user.current_period_end else None,
         "can_create_projects": can_create,
         "limits": plan_limits,
+        "usage": {
+            "simulations_used": simulations_used,
+            "simulations_limit": plan_limits['simulations_per_month'],
+        },
     }), 200

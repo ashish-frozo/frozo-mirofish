@@ -9,7 +9,7 @@ import time
 import threading
 import traceback
 from flask import Blueprint, request, jsonify, g
-from ..middleware.auth import require_auth
+from ..middleware.auth import require_auth, require_active_plan
 from ..db import get_db
 from ..repositories.task_repo import TaskRepository
 from ..repositories.project_repo import ProjectRepository
@@ -22,7 +22,7 @@ predict_bp = Blueprint('predict', __name__)
 
 
 @predict_bp.route('', methods=['POST'])
-@require_auth
+@require_active_plan
 def start_prediction():
     """
     One-click prediction: upload files + requirement -> auto-run all 5 steps.

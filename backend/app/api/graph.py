@@ -18,7 +18,7 @@ from ..utils.logger import get_logger
 from ..repositories.project_repo import ProjectRepository
 from ..repositories.task_repo import TaskRepository
 from ..db import get_db
-from ..middleware.auth import require_auth
+from ..middleware.auth import require_auth, require_active_plan
 
 # Get logger
 logger = get_logger('mirofish.api')
@@ -191,7 +191,7 @@ def reset_project(project_id: str):
 # ============== API 1: Upload Files and Generate Ontology ==============
 
 @graph_bp.route('/ontology/generate', methods=['POST'])
-@require_auth
+@require_active_plan
 def generate_ontology():
     """
     API 1: Upload files, analyze and generate ontology definition
@@ -337,7 +337,7 @@ def generate_ontology():
 # ============== API 2: Build Graph ==============
 
 @graph_bp.route('/build', methods=['POST'])
-@require_auth
+@require_active_plan
 def build_graph():
     """
     API 2: Build graph based on project_id

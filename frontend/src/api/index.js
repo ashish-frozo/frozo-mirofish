@@ -65,6 +65,12 @@ service.interceptors.response.use(
       }
     }
 
+    // Redirect to pricing on subscription required
+    if (error.response?.status === 403 && error.response?.data?.code === 'SUBSCRIPTION_REQUIRED') {
+      window.location.href = '/pricing'
+      return Promise.reject(error)
+    }
+
     console.error('Response error:', error)
 
     // Handle timeout

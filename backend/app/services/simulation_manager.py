@@ -301,6 +301,14 @@ class SimulationManager:
                 self._save_simulation_state(state)
                 return state
 
+            # Enforce plan-based max_agents limit
+            if plan_limits:
+                max_agents = plan_limits.get('max_agents', 20)
+                if len(filtered.entities) > max_agents:
+                    filtered.entities = filtered.entities[:max_agents]
+                    filtered.filtered_count = max_agents
+                    state.entities_count = max_agents
+
             # ========== Phase 2: Generate Agent Profiles ==========
             total_entities = len(filtered.entities)
 

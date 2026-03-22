@@ -14,7 +14,7 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
-from ..middleware.auth import require_auth
+from ..middleware.auth import require_auth, require_active_plan
 from ..repositories.simulation_repo import SimulationRepository
 from ..repositories.project_repo import ProjectRepository
 from ..db import get_db
@@ -151,7 +151,7 @@ def get_entities_by_type(graph_id: str, entity_type: str):
 # ============== Simulation Management APIs ==============
 
 @simulation_bp.route('/create', methods=['POST'])
-@require_auth
+@require_active_plan
 def create_simulation():
     """
     Create a new simulation
@@ -389,7 +389,7 @@ def _check_simulation_prepared(simulation_id: str) -> tuple:
 
 
 @simulation_bp.route('/prepare', methods=['POST'])
-@require_auth
+@require_active_plan
 def prepare_simulation():
     """
     Prepare simulation environment (async task, LLM intelligently generates all parameters)
@@ -1579,7 +1579,7 @@ def generate_profiles():
 # ============== Simulation Run Control APIs ==============
 
 @simulation_bp.route('/start', methods=['POST'])
-@require_auth
+@require_active_plan
 def start_simulation():
     """
     Start running a simulation
@@ -1649,6 +1649,13 @@ def start_simulation():
                     "success": False,
                     "error": "max_rounds must be a valid integer"
                 }), 400
+
+        # Enforce plan-based hard limits on max_rounds
+        user_plan = g.current_user.plan or 'trial'
+        plan_limits = PLAN_LIMITS.get(user_plan, PLAN_LIMITS['trial'])
+        plan_max_rounds = plan_limits.get('max_rounds', 5)
+        if max_rounds is None or max_rounds > plan_max_rounds:
+            max_rounds = plan_max_rounds
 
         if platform not in ['twitter', 'reddit', 'parallel']:
             return jsonify({

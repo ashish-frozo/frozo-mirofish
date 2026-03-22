@@ -18,7 +18,7 @@ from ..repositories.report_repo import ReportRepository
 from ..repositories.simulation_repo import SimulationRepository
 from ..db import get_db
 from ..utils.logger import get_logger
-from ..middleware.auth import require_auth
+from ..middleware.auth import require_auth, require_active_plan
 
 logger = get_logger('mirofish.api.report')
 
@@ -26,7 +26,7 @@ logger = get_logger('mirofish.api.report')
 # ============== Report Generation APIs ==============
 
 @report_bp.route('/generate', methods=['POST'])
-@require_auth
+@require_active_plan
 def generate_report():
     """
     Generate simulation analysis report (async task)

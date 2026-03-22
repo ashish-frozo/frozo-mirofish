@@ -77,6 +77,11 @@ const routes = [
     name: 'PredictionProgress',
     component: () => import('../views/PredictionProgress.vue'),
     props: true
+  },
+  {
+    path: '/pricing',
+    name: 'Pricing',
+    component: () => import('../views/Pricing.vue'),
   }
 ]
 
@@ -108,6 +113,12 @@ router.beforeEach(async (to, from, next) => {
     if (!auth.isAuthenticated) {
       return next('/login')
     }
+  }
+
+  // Routes that require an active plan (creating new predictions)
+  const planRequired = ['NewProject']
+  if (planRequired.includes(to.name) && !auth.canCreateProjects) {
+    return next('/pricing')
   }
 
   next()
