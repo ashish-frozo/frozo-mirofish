@@ -400,7 +400,10 @@ async function handleUpgrade(plan) {
   upgrading.value = true
   try {
     const res = await createCheckout(plan)
-    window.location.href = res.checkout_url
+    const url = res?.checkout_url || res?.data?.checkout_url
+    if (url) {
+      window.location.href = url
+    }
   } catch (e) {
     console.error('Checkout failed:', e)
     alert('Failed to start checkout. Please try again.')
@@ -412,7 +415,10 @@ async function handleUpgrade(plan) {
 async function handleManageSubscription() {
   try {
     const res = await createPortal()
-    window.location.href = res.portal_url
+    const url = res?.portal_url || res?.data?.portal_url
+    if (url) {
+      window.location.href = url
+    }
   } catch (e) {
     console.error('Portal failed:', e)
   }
