@@ -18,7 +18,7 @@ from .utils.logger import setup_logger, get_logger
 
 def create_app(config_class=Config):
     """Flask application factory function"""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     app.config.from_object(config_class)
 
     # Set JSON encoding: ensure non-ASCII characters display directly (instead of \uXXXX format)
@@ -123,7 +123,7 @@ def create_app(config_class=Config):
     def health():
         return {'status': 'ok', 'service': 'MiroFish Backend'}
 
-    from flask import send_from_directory
+    from flask import send_from_directory, jsonify
 
     # Serve landing page at /
     landing_dir = os.path.join(os.path.dirname(__file__), '../../landing')
@@ -140,17 +140,19 @@ def create_app(config_class=Config):
             logger.info(f"Serving landing page from {landing_dir}")
 
     # Serve static assets (images, videos used by landing page)
-    static_dir = os.path.join(os.path.dirname(__file__), '../../static')
+    static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../static'))
     if os.path.isdir(static_dir):
         @app.route('/static/<path:path>')
         def serve_static_assets(path):
-            # Explicit MIME types for media files
-            mimetype = None
-            if path.endswith('.mp4'):
-                mimetype = 'video/mp4'
-            elif path.endswith('.webm'):
-                mimetype = 'video/webm'
-            return send_from_directory(static_dir, path, mimetype=mimetype)
+            try:
+                return send_from_directory(static_dir, path)
+            except Exception as e:
+                logger.error(f"Static file error: {path} from {static_dir}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"error": str(e)}), 404
+    else:
+        logger.warning(f"Static dir not found: {os.path.join(os.path.dirname(__file__), '../../static')}")
 
     # Serve frontend SPA for all other routes
     frontend_dist = os.path.join(os.path.dirname(__file__), '../../frontend/dist')
