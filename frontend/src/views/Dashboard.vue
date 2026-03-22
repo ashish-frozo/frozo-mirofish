@@ -259,7 +259,7 @@
         <div class="dashboard-footer__inner">
           <p class="dashboard-footer__copy">&copy; 2026 Augur AI. All rights reserved.</p>
           <div class="dashboard-footer__links">
-            <a href="mailto:mirofish@shanda.com">Contact</a>
+            <a href="mailto:hello@frozo.ai">Contact</a>
             <a href="https://github.com/666ghj/MiroFish" target="_blank" rel="noopener">GitHub</a>
           </div>
         </div>
