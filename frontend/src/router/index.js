@@ -82,6 +82,7 @@ const routes = [
     path: '/pricing',
     name: 'Pricing',
     component: () => import('../views/Pricing.vue'),
+    meta: { public: true }
   }
 ]
 

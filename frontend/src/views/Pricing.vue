@@ -147,18 +147,21 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import { createCheckout, createPortal, getBillingStatus } from '../api/billing'
 
+const router = useRouter()
 const auth = useAuthStore()
 const upgrading = ref(false)
 const usage = ref(null)
 
-const currentPlan = computed(() => auth.currentPlan)
-const isTrialExpired = computed(() => auth.isTrialExpired)
-const trialDaysLeft = computed(() => auth.trialDaysLeft)
+const currentPlan = computed(() => auth.isAuthenticated ? auth.currentPlan : null)
+const isTrialExpired = computed(() => auth.isAuthenticated ? auth.isTrialExpired : false)
+const trialDaysLeft = computed(() => auth.isAuthenticated ? auth.trialDaysLeft : null)
 
 onMounted(async () => {
+  if (!auth.isAuthenticated) return
   try {
     const res = await getBillingStatus()
     if (res?.usage) {
@@ -170,6 +173,10 @@ onMounted(async () => {
 })
 
 async function handleUpgrade(plan) {
+  if (!auth.isAuthenticated) {
+    router.push('/signup')
+    return
+  }
   upgrading.value = true
   try {
     const res = await createCheckout(plan)
