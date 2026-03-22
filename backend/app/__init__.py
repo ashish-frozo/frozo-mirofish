@@ -139,12 +139,18 @@ def create_app(config_class=Config):
         if should_log_startup:
             logger.info(f"Serving landing page from {landing_dir}")
 
-    # Serve static assets (images used by landing page)
+    # Serve static assets (images, videos used by landing page)
     static_dir = os.path.join(os.path.dirname(__file__), '../../static')
     if os.path.isdir(static_dir):
         @app.route('/static/<path:path>')
         def serve_static_assets(path):
-            return send_from_directory(static_dir, path)
+            # Explicit MIME types for media files
+            mimetype = None
+            if path.endswith('.mp4'):
+                mimetype = 'video/mp4'
+            elif path.endswith('.webm'):
+                mimetype = 'video/webm'
+            return send_from_directory(static_dir, path, mimetype=mimetype)
 
     # Serve frontend SPA for all other routes
     frontend_dist = os.path.join(os.path.dirname(__file__), '../../frontend/dist')
