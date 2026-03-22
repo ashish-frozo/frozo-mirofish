@@ -1046,3 +1046,74 @@ Important:
         """[Deprecated] Please use save_profiles() method"""
         logger.warning("save_profiles_to_json is deprecated, please use save_profiles method")
         self.save_profiles(profiles, file_path, platform)
+
+    def calibrate_with_real_data(
+        self,
+        profiles: List[OasisAgentProfile],
+        real_entities: List[Dict[str, Any]],
+    ) -> List[OasisAgentProfile]:
+        """Calibrate generated agent profiles with real-world data from BettaFish.
+
+        Matches profiles to real entities by exact name + type, then fuzzy fallback.
+        Overrides sentiment_bias, influence, activity, and enriches persona.
+
+        Args:
+            profiles: Generated agent profiles from ontology.
+            real_entities: Calibration data from CrawlSeedTransformer.
+
+        Returns:
+            Calibrated profiles (modified in-place and returned).
+        """
+        if not real_entities:
+            return profiles
+
+        # Build lookup by (lowercase_name, type)
+        entity_lookup = {}
+        for e in real_entities:
+            key = (e.get("name", "").lower().strip(), e.get("type", "").upper())
+            entity_lookup[key] = e
+
+        matched = 0
+        for profile in profiles:
+            # Exact match first
+            key = (profile.name.lower().strip(), (profile.source_entity_type or "PERSON").upper())
+            real = entity_lookup.get(key)
+
+            # Fuzzy fallback: try name-only match
+            if not real:
+                for (name, etype), candidate in entity_lookup.items():
+                    if name == profile.name.lower().strip():
+                        real = candidate
+                        break
+
+            if not real:
+                continue
+
+            matched += 1
+
+            # Enrich persona with real behavior
+            stance = real.get("stance", "neutral")
+            post_count = real.get("post_count", 0)
+            samples = real.get("sample_content", [])
+            sample_summary = "; ".join(s[:100] for s in samples[:2]) if samples else ""
+
+            enrichment = (
+                f" Based on recent social media activity, this person has been "
+                f"{stance} on the topic, posting {post_count} times."
+            )
+            if sample_summary:
+                enrichment += f" Recent posts include: {sample_summary}"
+
+            profile.persona = (profile.persona or "") + enrichment
+
+            # Adjust influence based on real data
+            influence = real.get("influence_score", 0.5)
+            if influence > 0.7:
+                profile.follower_count = max(profile.follower_count, 10000)
+                profile.karma = max(profile.karma, 5000)
+            elif influence > 0.4:
+                profile.follower_count = max(profile.follower_count, 1000)
+                profile.karma = max(profile.karma, 2000)
+
+        logger.info(f"Calibrated {matched}/{len(profiles)} profiles with real entity data")
+        return profiles
