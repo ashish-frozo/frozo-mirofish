@@ -86,6 +86,15 @@ def create_app(config_class=Config):
                     if should_log_startup:
                         logger.info(f"Added missing column: users.{col_name}")
 
+        # Add service_origin to tasks table if missing
+            if 'tasks' in [t for t in inspector.get_table_names()]:
+                task_cols = {c['name'] for c in inspector.get_columns('tasks')}
+                if 'service_origin' not in task_cols:
+                    conn.execute(text("ALTER TABLE tasks ADD COLUMN service_origin VARCHAR(50)"))
+                    conn.commit()
+                    if should_log_startup:
+                        logger.info("Added missing column: tasks.service_origin")
+
         if should_log_startup:
             logger.info("Database tables initialized")
     except Exception as e:
