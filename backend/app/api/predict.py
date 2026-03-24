@@ -83,9 +83,23 @@ def start_prediction():
 
 
 @predict_bp.route('/<task_id>/status', methods=['GET'])
-@require_auth
 def get_prediction_status(task_id: str):
-    """Poll prediction progress."""
+    """Poll prediction progress. Accepts JWT auth or service key."""
+    service_key = request.headers.get('X-Service-Key', '')
+    has_valid_service_key = (
+        service_key and Config.BETTAFISH_SERVICE_KEY
+        and service_key == Config.BETTAFISH_SERVICE_KEY
+    )
+    if not has_valid_service_key:
+        # Try JWT auth
+        import jwt as _jwt
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"success": False, "error": "Authentication required"}), 401
+        try:
+            _jwt.decode(token, Config.JWT_SECRET_KEY, algorithms=["HS256"])
+        except Exception:
+            return jsonify({"success": False, "error": "Invalid token"}), 401
     try:
         with get_db() as session:
             task_repo = TaskRepository(session)
