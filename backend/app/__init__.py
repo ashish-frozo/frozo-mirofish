@@ -67,10 +67,20 @@ def create_app(config_class=Config):
             return f"user:{user.id}"
         return get_remote_address()
 
+    # Use Redis if available, fall back to in-memory
+    _storage_uri = Config.REDIS_URL
+    try:
+        import redis as _redis
+        _r = _redis.from_url(Config.REDIS_URL, socket_connect_timeout=2)
+        _r.ping()
+    except Exception:
+        _storage_uri = "memory://"
+        logger.warning("Redis unavailable — rate limiter using in-memory storage")
+
     limiter = Limiter(
         app=app,
         key_func=_rate_limit_key,
-        storage_uri=Config.REDIS_URL,
+        storage_uri=_storage_uri,
         default_limits=["100 per minute"],
         strategy="fixed-window",
     )
