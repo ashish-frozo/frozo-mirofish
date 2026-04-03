@@ -3,6 +3,7 @@ Billing API — Dodo Payments integration.
 Handles checkout sessions, customer portal, webhooks, and billing status.
 """
 
+import base64
 import hashlib
 import hmac
 import json
@@ -134,7 +135,7 @@ def create_portal():
         )
 
         logger.info(f"Portal session created for user {user.id}")
-        return jsonify({"success": True, "portal_url": portal.url}), 200
+        return jsonify({"success": True, "portal_url": portal.link}), 200
 
     except Exception as e:
         logger.error(f"Portal creation failed: {e}")
@@ -146,15 +147,32 @@ def handle_webhook():
     """Receive and process Dodo Payments webhook events. No auth — verified by signature."""
     payload = request.get_data(as_text=True)
 
-    # Verify webhook signature
-    signature = request.headers.get('X-Dodo-Signature') or request.headers.get('Webhook-Signature') or ''
-    if Config.DODO_WEBHOOK_SECRET and signature:
-        expected = hmac.new(
-            Config.DODO_WEBHOOK_SECRET.encode(),
-            payload.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(signature, expected):
+    # Verify webhook signature (Standard Webhooks spec)
+    # Dodo uses: signed_content = "{webhook-id}.{webhook-timestamp}.{payload}"
+    # Secret is base64-encoded with "whsec_" prefix
+    webhook_id = request.headers.get('webhook-id', '')
+    webhook_timestamp = request.headers.get('webhook-timestamp', '')
+    webhook_signature = request.headers.get('webhook-signature', '')
+
+    if Config.DODO_WEBHOOK_SECRET and webhook_signature:
+        # Decode the secret (strip "whsec_" prefix if present, then base64 decode)
+        secret = Config.DODO_WEBHOOK_SECRET
+        if secret.startswith('whsec_'):
+            secret = secret[6:]
+        try:
+            secret_bytes = base64.b64decode(secret)
+        except Exception:
+            secret_bytes = secret.encode()
+
+        # Construct signed content per Standard Webhooks spec
+        signed_content = f"{webhook_id}.{webhook_timestamp}.{payload}"
+        expected = base64.b64encode(
+            hmac.new(secret_bytes, signed_content.encode(), hashlib.sha256).digest()
+        ).decode()
+
+        # webhook-signature header may contain multiple signatures (v1,xxx v1,yyy)
+        signatures = [s.split(',', 1)[-1] for s in webhook_signature.split(' ') if ',' in s]
+        if not any(hmac.compare_digest(expected, sig) for sig in signatures):
             logger.warning("Webhook signature verification failed")
             return jsonify({"error": "Invalid signature"}), 401
 
