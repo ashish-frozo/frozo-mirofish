@@ -586,7 +586,7 @@ def build_graph():
                         bg_repo.update(bg_project, status="failed", step_data=sd)
 
                 with get_db() as s:
-                    TaskRepository(s).fail(task_id, error=traceback.format_exc())
+                    TaskRepository(s).fail(task_id, error=str(e))
 
         # Start background thread
         thread = threading.Thread(target=build_task, daemon=True)
