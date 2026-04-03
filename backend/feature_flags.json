@@ -1,0 +1,6 @@
+{
+  "enable_reddit_simulation": true,
+  "enable_billing": true,
+  "enable_report_chat": true,
+  "max_simulation_rounds_override": null
+}
