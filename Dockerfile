@@ -47,5 +47,5 @@ USER appuser
 
 EXPOSE ${PORT:-5001}
 
-# Run Flask backend — use --no-sync since deps are already installed
-CMD ["uv", "run", "--no-sync", "python", "run.py"]
+# Run Flask backend directly from venv (avoids uv run re-syncing)
+CMD ["/app/backend/.venv/bin/python", "run.py"]
