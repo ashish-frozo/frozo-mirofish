@@ -267,8 +267,7 @@ def generate_report():
         logger.error(f"Failed to start report generation task: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -401,8 +400,7 @@ def get_report(report_id: str):
         logger.error(f"Failed to get report: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -441,8 +439,7 @@ def get_report_by_simulation(simulation_id: str):
         logger.error(f"Failed to get report: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -482,8 +479,7 @@ def list_reports():
         logger.error(f"Failed to list reports: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -584,8 +580,7 @@ def download_report(report_id: str):
         logger.error(f"Failed to download report: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -618,8 +613,7 @@ def delete_report(report_id: str):
         logger.error(f"Failed to delete report: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -731,8 +725,7 @@ def chat_with_report_agent():
         logger.error(f"Conversation failed: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -775,8 +768,7 @@ def get_report_progress(report_id: str):
         logger.error(f"Failed to get report progress: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -827,8 +819,7 @@ def get_report_sections(report_id: str):
         logger.error(f"Failed to get section list: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -872,8 +863,7 @@ def get_single_section(report_id: str, section_index: int):
         logger.error(f"Failed to get section content: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -924,8 +914,7 @@ def check_report_status(simulation_id: str):
         logger.error(f"Failed to check report status: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -986,8 +975,7 @@ def get_agent_log(report_id: str):
         logger.error(f"Failed to get Agent log: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1021,8 +1009,7 @@ def stream_agent_log(report_id: str):
         logger.error(f"Failed to get Agent log: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1070,8 +1057,7 @@ def get_console_log(report_id: str):
         logger.error(f"Failed to get console log: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1105,8 +1091,7 @@ def stream_console_log(report_id: str):
         logger.error(f"Failed to get console log: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1156,8 +1141,7 @@ def search_graph_tool():
         logger.error(f"Graph search failed: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1197,6 +1181,5 @@ def get_graph_statistics_tool():
         logger.error(f"Failed to get graph statistics: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500

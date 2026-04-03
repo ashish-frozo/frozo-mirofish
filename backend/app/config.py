@@ -22,7 +22,7 @@ class Config:
 
     # Flask configuration
     SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
 
     # JSON configuration - disable ASCII escaping to display non-ASCII characters directly (instead of \uXXXX format)
     JSON_AS_ASCII = False
@@ -92,6 +92,12 @@ class Config:
 
     # BettaFish Integration
     BETTAFISH_SERVICE_KEY = os.environ.get('BETTAFISH_SERVICE_KEY', '')
+
+    # CORS
+    ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000')
+
+    # Redis (used for rate limiting and caching)
+    REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
     @classmethod
     def validate(cls):

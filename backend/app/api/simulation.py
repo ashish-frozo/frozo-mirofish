@@ -83,8 +83,7 @@ def get_graph_entities(graph_id: str):
         logger.error(f"Failed to fetch graph entities: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -111,8 +110,7 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
         logger.error(f"Failed to get entity details: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -143,8 +141,7 @@ def get_entities_by_type(graph_id: str, entity_type: str):
         logger.error(f"Failed to get entities: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -264,8 +261,7 @@ def create_simulation():
         logger.error(f"Failed to create simulation: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -675,8 +671,7 @@ def prepare_simulation():
         logger.error(f"Failed to start preparation task: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -851,8 +846,7 @@ def get_simulation(simulation_id: str):
         logger.error(f"Failed to get simulation status: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -893,8 +887,7 @@ def list_simulations():
         logger.error(f"Failed to list simulations: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1070,8 +1063,7 @@ def get_simulation_history():
         logger.error(f"Failed to get simulation history: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1144,8 +1136,7 @@ def get_simulation_profiles(simulation_id: str):
         logger.error(f"Failed to get profiles: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1255,8 +1246,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
         logger.error(f"Failed to get realtime profiles: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1376,8 +1366,7 @@ def get_simulation_config_realtime(simulation_id: str):
         logger.error(f"Failed to get realtime config: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1413,8 +1402,7 @@ def get_simulation_config(simulation_id: str):
         logger.error(f"Failed to get config: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1443,8 +1431,7 @@ def download_simulation_config(simulation_id: str):
         logger.error(f"Failed to download config: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1496,8 +1483,7 @@ def download_simulation_script(script_name: str):
         logger.error(f"Failed to download script: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1571,8 +1557,7 @@ def generate_profiles():
         logger.error(f"Failed to generate profiles: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1776,8 +1761,7 @@ def start_simulation():
         logger.error(f"Failed to start simulation: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1846,8 +1830,7 @@ def stop_simulation():
         logger.error(f"Failed to stop simulation: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -1907,8 +1890,7 @@ def get_run_status(simulation_id: str):
         logger.error(f"Failed to get run status: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2009,8 +1991,7 @@ def get_run_status_detail(simulation_id: str):
         logger.error(f"Failed to get detailed status: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2064,8 +2045,7 @@ def get_simulation_actions(simulation_id: str):
         logger.error(f"Failed to get action history: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2105,8 +2085,7 @@ def get_simulation_timeline(simulation_id: str):
         logger.error(f"Failed to get timeline: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2133,8 +2112,7 @@ def get_agent_stats(simulation_id: str):
         logger.error(f"Failed to get Agent statistics: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2214,8 +2192,7 @@ def get_simulation_posts(simulation_id: str):
         logger.error(f"Failed to get posts: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2290,8 +2267,7 @@ def get_simulation_comments(simulation_id: str):
         logger.error(f"Failed to get comments: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2422,8 +2398,7 @@ def interview_agent():
         logger.error(f"Interview failed: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2561,8 +2536,7 @@ def interview_agents_batch():
         logger.error(f"Batch interview failed: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2665,8 +2639,7 @@ def interview_all_agents():
         logger.error(f"Global interview failed: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2738,8 +2711,7 @@ def get_interview_history():
         logger.error(f"Failed to get interview history: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2804,8 +2776,7 @@ def get_env_status():
         logger.error(f"Failed to get environment status: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500
 
 
@@ -2886,6 +2857,5 @@ def close_simulation_env():
         logger.error(f"Failed to close environment: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": str(e)
         }), 500

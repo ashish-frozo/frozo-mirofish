@@ -40,7 +40,28 @@ def create_app(config_class=Config):
         logger.info("=" * 50)
 
     # Enable CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    origins = [o.strip() for o in Config.ALLOWED_ORIGINS.split(',') if o.strip()]
+    CORS(app, resources={r"/api/*": {"origins": origins, "supports_credentials": True}})
+
+    # Rate limiting
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+
+    def _rate_limit_key():
+        from flask import g
+        user = getattr(g, 'current_user', None)
+        if user and hasattr(user, 'id'):
+            return f"user:{user.id}"
+        return get_remote_address()
+
+    limiter = Limiter(
+        app=app,
+        key_func=_rate_limit_key,
+        storage_uri=Config.REDIS_URL,
+        default_limits=["100 per minute"],
+        strategy="fixed-window",
+    )
+    app.limiter = limiter
 
     # Register simulation process cleanup function (ensure all simulation processes are terminated when server shuts down)
     from .services.simulation_runner import SimulationRunner
@@ -48,18 +69,37 @@ def create_app(config_class=Config):
     if should_log_startup:
         logger.info("Registered simulation process cleanup function")
 
-    # Request logging middleware
+    # HTTPS enforcement + safe request logging
     @app.before_request
-    def log_request():
+    def before_request_handler():
         logger = get_logger('mirofish.request')
+        # HTTPS enforcement
+        if not app.debug and request.path != '/health':
+            forwarded_proto = request.headers.get('X-Forwarded-Proto', 'https')
+            if forwarded_proto == 'http':
+                from flask import redirect
+                url = request.url.replace('http://', 'https://', 1)
+                return redirect(url, code=301)
+        # Safe request logging (no body — avoids PII leaks)
         logger.debug(f"Request: {request.method} {request.path}")
-        if request.content_type and 'json' in request.content_type:
-            logger.debug(f"Request body: {request.get_json(silent=True)}")
 
     @app.after_request
-    def log_response(response):
+    def add_security_headers(response):
         logger = get_logger('mirofish.request')
         logger.debug(f"Response: {response.status_code}")
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['X-XSS-Protection'] = '0'
+        if not app.debug:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; "
+                "connect-src 'self'"
+            )
         return response
 
     # Initialize database tables (auto-create if they don't exist)
@@ -126,6 +166,33 @@ def create_app(config_class=Config):
 
     from .api.crawl_import import crawl_import_bp
     app.register_blueprint(crawl_import_bp, url_prefix='/api/predict')
+
+    # Endpoint-specific rate limits
+    auth_limits = {
+        'auth.login': '5 per minute',
+        'auth.signup': '5 per minute',
+        'auth.refresh': '10 per minute',
+    }
+    for endpoint, limit_str in auth_limits.items():
+        view_fn = app.view_functions.get(endpoint)
+        if view_fn:
+            app.view_functions[endpoint] = limiter.limit(limit_str, key_func=get_remote_address)(view_fn)
+
+    upload_limits = {'graph.upload_file': '10 per hour'}
+    for endpoint, limit_str in upload_limits.items():
+        view_fn = app.view_functions.get(endpoint)
+        if view_fn:
+            app.view_functions[endpoint] = limiter.limit(limit_str)(view_fn)
+
+    llm_limits = {
+        'graph.generate_ontology': '20 per hour',
+        'graph.build_graph': '20 per hour',
+        'simulation.start_simulation': '20 per hour',
+    }
+    for endpoint, limit_str in llm_limits.items():
+        view_fn = app.view_functions.get(endpoint)
+        if view_fn:
+            app.view_functions[endpoint] = limiter.limit(limit_str)(view_fn)
 
     # Health check
     @app.route('/health')

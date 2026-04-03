@@ -42,4 +42,7 @@ def register_error_handlers(app):
     @app.errorhandler(Exception)
     def handle_generic(e):
         logger.error(f"Unhandled exception: {traceback.format_exc()}")
-        return jsonify({"error": "Internal server error", "code": "INTERNAL_ERROR"}), 500
+        payload = {"error": "Internal server error", "code": "INTERNAL_ERROR"}
+        if app.debug:
+            payload["traceback"] = traceback.format_exc()
+        return jsonify(payload), 500
