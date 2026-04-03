@@ -83,6 +83,18 @@ const routes = [
     name: 'Pricing',
     component: () => import('../views/Pricing.vue'),
     meta: { public: true }
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('../views/TermsOfService.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/privacy',
+    name: 'Privacy',
+    component: () => import('../views/PrivacyPolicy.vue'),
+    meta: { public: true }
   }
 ]
 

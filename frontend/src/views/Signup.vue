@@ -66,6 +66,13 @@
           />
         </div>
 
+        <p class="legal-consent">
+          By creating an account, you agree to our
+          <router-link to="/terms">Terms of Service</router-link>
+          and
+          <router-link to="/privacy">Privacy Policy</router-link>.
+        </p>
+
         <button type="submit" class="auth-btn" :disabled="loading">
           <span v-if="!loading">Create Account</span>
           <span v-else class="btn-loading">Creating account...</span>
@@ -270,6 +277,17 @@ async function handleSignup() {
 }
 
 .auth-link:hover {
+  text-decoration: underline;
+}
+
+.legal-consent {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.legal-consent a {
+  color: #000;
   text-decoration: underline;
 }
 
