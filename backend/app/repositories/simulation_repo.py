@@ -34,6 +34,10 @@ class SimulationRepository:
             SimulationModel.project_id == project_id
         ).order_by(SimulationModel.created_at.desc()).all()
 
+    def find_by_status(self, status: str):
+        """Find all simulations with a given status."""
+        return self.session.query(SimulationModel).filter_by(status=status).all()
+
     def get_by_simulation_id(self, simulation_id: str) -> SimulationModel | None:
         """Look up by the legacy string simulation_id field (e.g. 'sim_xxxx')."""
         return self.session.query(SimulationModel).filter(

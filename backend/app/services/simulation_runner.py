@@ -1271,6 +1271,29 @@ class SimulationRunner:
                 pass
         cls._stderr_files.clear()
 
+        # Mark running simulations as interrupted in database
+        try:
+            from ..db import get_db
+            from ..repositories.simulation_repo import SimulationRepository
+            with get_db() as session:
+                for sim_id in list(cls._run_states.keys()):
+                    state = cls._run_states[sim_id]
+                    if state.runner_status in [RunnerStatus.RUNNING, RunnerStatus.STARTING]:
+                        state.runner_status = RunnerStatus.STOPPED
+                        state.completed_at = datetime.now().isoformat()
+                        state.error = "Server shutdown — simulation interrupted"
+                        cls._save_run_state(state)
+                        try:
+                            sim = SimulationRepository(session).get_by_id(sim_id)
+                            if sim and sim.status == 'running':
+                                sim.status = 'interrupted'
+                                session.commit()
+                                logger.info(f"Marked simulation {sim_id} as interrupted")
+                        except Exception as db_err:
+                            logger.warning(f"Failed to update DB for {sim_id}: {db_err}")
+        except Exception as e:
+            logger.warning(f"Failed to mark simulations as interrupted: {e}")
+
         # Clean up in-memory state
         cls._processes.clear()
         cls._action_queues.clear()

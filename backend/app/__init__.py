@@ -21,6 +21,19 @@ def create_app(config_class=Config):
     app = Flask(__name__, static_folder=None)
     app.config.from_object(config_class)
 
+    # Initialize Sentry (must be before other imports)
+    if Config.SENTRY_DSN:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        sentry_sdk.init(
+            dsn=Config.SENTRY_DSN,
+            integrations=[FlaskIntegration(), SqlalchemyIntegration()],
+            traces_sample_rate=0.1,
+            profiles_sample_rate=0.1,
+            send_default_pii=False,
+        )
+
     # Set JSON encoding: ensure non-ASCII characters display directly (instead of \uXXXX format)
     # Flask >= 2.3 uses app.json.ensure_ascii, older versions use JSON_AS_ASCII config
     if hasattr(app, 'json') and hasattr(app.json, 'ensure_ascii'):
@@ -72,6 +85,9 @@ def create_app(config_class=Config):
     # HTTPS enforcement + safe request logging
     @app.before_request
     def before_request_handler():
+        import uuid
+        from flask import g
+        g.request_id = str(uuid.uuid4())[:8]
         logger = get_logger('mirofish.request')
         # HTTPS enforcement
         if not app.debug and request.path != '/health':
@@ -150,6 +166,24 @@ def create_app(config_class=Config):
                 logger.info(f"Recovered {count} stale tasks from previous crash")
     except Exception as e:
         logger.warning(f"Task recovery skipped: {e}")
+
+    # Recover simulations stuck in 'running' state from previous crash
+    try:
+        from .db import get_db
+        with get_db() as session:
+            from .repositories.simulation_repo import SimulationRepository
+            sim_repo = SimulationRepository(session)
+            stuck = sim_repo.find_by_status('running')
+            for sim in stuck:
+                sim.status = 'interrupted'
+                if should_log_startup:
+                    logger.warning(f"Recovered stuck simulation: {sim.id} (was 'running', now 'interrupted')")
+            if stuck:
+                session.commit()
+                if should_log_startup:
+                    logger.info(f"Recovered {len(stuck)} stuck simulations from previous crash")
+    except Exception as e:
+        logger.warning(f"Simulation recovery skipped: {e}")
 
     # Register error handlers
     from .middleware.errors import register_error_handlers

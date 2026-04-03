@@ -49,6 +49,9 @@ dependencies = [
     # Email
     "resend>=2.0",
 
+    # Error tracking
+    "sentry-sdk[flask]>=2.0",
+
     # Knowledge Graph (replaces Zep Cloud)
     "graphiti-core>=0.5",
     "neo4j>=5.0",

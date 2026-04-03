@@ -27,6 +27,20 @@ def _ensure_utf8_stdout():
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
 
 
+class RequestIdFilter(logging.Filter):
+    """Inject request_id into log records."""
+    def filter(self, record):
+        try:
+            from flask import g, has_request_context
+            if has_request_context():
+                record.request_id = getattr(g, 'request_id', '-')
+            else:
+                record.request_id = '-'
+        except Exception:
+            record.request_id = '-'
+        return True
+
+
 def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.Logger:
     """
     Set up a logger.
@@ -54,7 +68,7 @@ def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.
 
     # Log formats
     detailed_formatter = logging.Formatter(
-        '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s',
+        '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] [rid:%(request_id)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
@@ -80,6 +94,11 @@ def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(simple_formatter)
+
+    # Add request ID filter
+    request_id_filter = RequestIdFilter()
+    file_handler.addFilter(request_id_filter)
+    console_handler.addFilter(request_id_filter)
 
     # Add handlers
     logger.addHandler(file_handler)

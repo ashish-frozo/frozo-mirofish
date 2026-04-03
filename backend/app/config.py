@@ -99,6 +99,9 @@ class Config:
     # Redis (used for rate limiting and caching)
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
+    # Sentry
+    SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+
     @classmethod
     def validate(cls):
         """Validate required configuration"""
