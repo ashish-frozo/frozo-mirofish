@@ -1,12 +1,26 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: mirofish-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
   mirofish:
     image: ghcr.io/666ghj/mirofish:latest
     container_name: mirofish
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "3000:3000"
       - "5001:5001"
     restart: unless-stopped
     volumes:
       - ./backend/uploads:/app/backend/uploads
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

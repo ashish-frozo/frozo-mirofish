@@ -31,6 +31,14 @@ COPY . .
 # Build frontend for production
 RUN cd frontend && npm run build
 
+# Production environment defaults
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Railway assigns PORT dynamically; default to 5001
 ENV FLASK_DEBUG=false
 
