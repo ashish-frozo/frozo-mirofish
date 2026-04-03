@@ -24,9 +24,42 @@ predict_bp = Blueprint('predict', __name__)
 @predict_bp.route('', methods=['POST'])
 @require_active_plan
 def start_prediction():
-    """
-    One-click prediction: upload files + requirement -> auto-run all 5 steps.
-    Returns a prediction task_id that the frontend polls.
+    """Start a one-click prediction (upload files + requirement)
+    ---
+    tags:
+      - Predict
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - in: formData
+        name: files
+        type: file
+        required: true
+        description: Document files to analyze
+      - in: formData
+        name: simulation_requirement
+        type: string
+        required: true
+        description: What to predict / simulate
+    responses:
+      202:
+        description: Prediction started
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                task_id: {type: string}
+                status: {type: string}
+                message: {type: string}
+      400:
+        description: Missing files or simulation requirement
+      500:
+        description: Internal error
     """
     try:
         user = g.current_user
@@ -84,7 +117,40 @@ def start_prediction():
 
 @predict_bp.route('/<task_id>/status', methods=['GET'])
 def get_prediction_status(task_id: str):
-    """Poll prediction progress. Accepts JWT auth or service key."""
+    """Poll prediction progress
+    ---
+    tags:
+      - Predict
+    description: Accepts JWT Bearer auth or X-Service-Key header.
+    parameters:
+      - in: path
+        name: task_id
+        type: string
+        required: true
+        description: Prediction task ID
+    responses:
+      200:
+        description: Prediction status
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                task_id: {type: string}
+                status: {type: string, enum: [pending, running, completed, failed]}
+                progress: {type: integer}
+                message: {type: string}
+                stage: {type: string}
+                stages: {type: object}
+                result: {type: object}
+                error: {type: string}
+      401:
+        description: Authentication required
+      404:
+        description: Task not found
+    """
     service_key = request.headers.get('X-Service-Key', '')
     has_valid_service_key = (
         service_key and Config.BETTAFISH_SERVICE_KEY

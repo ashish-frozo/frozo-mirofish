@@ -28,28 +28,47 @@ logger = get_logger('mirofish.api.report')
 @report_bp.route('/generate', methods=['POST'])
 @require_active_plan
 def generate_report():
-    """
-    Generate simulation analysis report (async task)
-
-    This is a long-running operation. The API returns task_id immediately.
-    Use GET /api/report/generate/status to check progress.
-
-    Request (JSON):
-        {
-            "simulation_id": "sim_xxxx",    // Required, Simulation ID
-            "force_regenerate": false        // Optional, force regeneration
-        }
-
-    Returns:
-        {
-            "success": true,
-            "data": {
-                "simulation_id": "sim_xxxx",
-                "task_id": "task_xxxx",
-                "status": "generating",
-                "message": "Report generation task started"
-            }
-        }
+    """Create a report from simulation results (async)
+    ---
+    tags:
+      - Report
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [simulation_id]
+          properties:
+            simulation_id:
+              type: string
+              description: Simulation ID (required)
+            force_regenerate:
+              type: boolean
+              default: false
+              description: Force regeneration even if report exists
+    responses:
+      200:
+        description: Report generation started or report already exists
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                simulation_id: {type: string}
+                report_id: {type: string}
+                task_id: {type: string}
+                status: {type: string}
+                message: {type: string}
+                already_generated: {type: boolean}
+      400:
+        description: Missing simulation_id or graph ID
+      404:
+        description: Simulation not found
     """
     try:
         data = request.get_json() or {}
@@ -364,22 +383,37 @@ def get_generate_status():
 @report_bp.route('/<report_id>', methods=['GET'])
 @require_auth
 def get_report(report_id: str):
-    """
-    Get report details
-
-    Returns:
-        {
-            "success": true,
-            "data": {
-                "report_id": "report_xxxx",
-                "simulation_id": "sim_xxxx",
-                "status": "completed",
-                "outline": {...},
-                "markdown_content": "...",
-                "created_at": "...",
-                "completed_at": "..."
-            }
-        }
+    """Get report details
+    ---
+    tags:
+      - Report
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: report_id
+        type: string
+        required: true
+        description: Report ID
+    responses:
+      200:
+        description: Report details
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                report_id: {type: string}
+                simulation_id: {type: string}
+                status: {type: string}
+                outline: {type: object}
+                markdown_content: {type: string}
+                created_at: {type: string}
+                completed_at: {type: string}
+      404:
+        description: Report not found
     """
     try:
         # Try file-based first (primary source during migration)

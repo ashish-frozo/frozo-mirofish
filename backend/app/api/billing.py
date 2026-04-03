@@ -55,7 +55,37 @@ def _product_id_to_plan(product_id: str) -> str:
 @billing_bp.route('/checkout', methods=['POST'])
 @require_auth
 def create_checkout():
-    """Create a Dodo checkout session and return the redirect URL."""
+    """Create a checkout session for a subscription plan
+    ---
+    tags:
+      - Billing
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [plan]
+          properties:
+            plan:
+              type: string
+              enum: [starter, pro]
+              description: Subscription plan to purchase
+    responses:
+      200:
+        description: Checkout URL created
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            checkout_url: {type: string}
+      422:
+        description: Invalid plan
+      503:
+        description: Billing not configured
+    """
     data = request.get_json() or {}
     plan = data.get('plan')
 
@@ -221,7 +251,38 @@ def handle_webhook():
 @billing_bp.route('/status', methods=['GET'])
 @require_auth
 def get_billing_status():
-    """Get current user's billing and plan status, including usage stats."""
+    """Get billing status, plan limits, and usage
+    ---
+    tags:
+      - Billing
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Billing status with limits and usage
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            plan: {type: string, enum: [trial, starter, pro, enterprise, expired]}
+            subscription_status: {type: string}
+            trial_ends_at: {type: string}
+            trial_expired: {type: boolean}
+            trial_days_left: {type: integer}
+            current_period_end: {type: string}
+            can_create_projects: {type: boolean}
+            limits:
+              type: object
+              properties:
+                simulations_per_month: {type: integer}
+                max_agents: {type: integer}
+                max_rounds: {type: integer}
+            usage:
+              type: object
+              properties:
+                simulations_used: {type: integer}
+                simulations_limit: {type: integer}
+    """
     user = g.current_user
     now = datetime.now(timezone.utc)
 

@@ -68,6 +68,46 @@ def _user_dict(user):
 
 @auth_bp.route("/signup", methods=["POST"])
 def signup():
+    """User signup
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [name, email, password]
+          properties:
+            name:
+              type: string
+              example: Jane Doe
+            email:
+              type: string
+              example: jane@example.com
+            password:
+              type: string
+              example: securepass123
+    responses:
+      201:
+        description: Signup successful
+        schema:
+          type: object
+          properties:
+            access_token: {type: string}
+            refresh_token: {type: string}
+            user:
+              type: object
+              properties:
+                id: {type: string}
+                email: {type: string}
+                name: {type: string}
+      409:
+        description: Email already registered
+      422:
+        description: Validation error
+    """
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip()
     name = (data.get("name") or "").strip()
@@ -106,6 +146,38 @@ def signup():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    """User login
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [email, password]
+          properties:
+            email:
+              type: string
+              example: user@example.com
+            password:
+              type: string
+              example: mypassword123
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            access_token: {type: string}
+            refresh_token: {type: string}
+      401:
+        description: Invalid credentials
+      422:
+        description: Validation error
+    """
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip()
     password = data.get("password") or ""
@@ -135,6 +207,34 @@ def login():
 
 @auth_bp.route("/refresh", methods=["POST"])
 def refresh():
+    """Refresh access token
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [refresh_token]
+          properties:
+            refresh_token:
+              type: string
+              description: Refresh token from login or previous refresh
+    responses:
+      200:
+        description: Token refreshed
+        schema:
+          type: object
+          properties:
+            access_token: {type: string}
+            refresh_token: {type: string}
+      401:
+        description: Invalid or expired refresh token
+      422:
+        description: Validation error
+    """
     data = request.get_json(silent=True) or {}
     raw_token = data.get("refresh_token") or ""
 
@@ -181,6 +281,30 @@ def refresh():
 @auth_bp.route("/logout", methods=["POST"])
 @require_auth
 def logout():
+    """User logout
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: false
+        schema:
+          type: object
+          properties:
+            refresh_token:
+              type: string
+              description: Refresh token to revoke
+    responses:
+      200:
+        description: Logged out successfully
+        schema:
+          type: object
+          properties:
+            message: {type: string}
+    """
     data = request.get_json(silent=True) or {}
     raw_token = data.get("refresh_token") or ""
 
@@ -209,6 +333,30 @@ def logout():
 @auth_bp.route("/me", methods=["GET"])
 @require_auth
 def me():
+    """Get current user profile
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Current user info
+        schema:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id: {type: string}
+                email: {type: string}
+                name: {type: string}
+                avatar_url: {type: string}
+                plan: {type: string}
+                created_at: {type: string}
+      401:
+        description: Not authenticated
+    """
     user = g.current_user
     return jsonify({"user": _user_dict(user)}), 200
 
@@ -220,6 +368,42 @@ def me():
 @auth_bp.route("/me", methods=["PUT"])
 @require_auth
 def update_me():
+    """Update current user profile
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              example: New Name
+            avatar_url:
+              type: string
+              example: https://example.com/avatar.png
+    responses:
+      200:
+        description: User updated
+        schema:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id: {type: string}
+                email: {type: string}
+                name: {type: string}
+      401:
+        description: Not authenticated
+      422:
+        description: Validation error
+    """
     data = request.get_json(silent=True) or {}
     user = g.current_user
     session = g.db_session

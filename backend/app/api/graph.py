@@ -108,8 +108,35 @@ def get_project(project_id: str):
 @graph_bp.route('/project/list', methods=['GET'])
 @require_auth
 def list_projects():
-    """
-    List all projects for the current user
+    """List all projects for the current user
+    ---
+    tags:
+      - Graph
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: limit
+        type: integer
+        default: 50
+        description: Maximum number of projects to return
+    responses:
+      200:
+        description: Project list
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  project_id: {type: string}
+                  name: {type: string}
+                  status: {type: string}
+                  created_at: {type: string}
+            count: {type: integer}
     """
     session = g.db_session
     repo = ProjectRepository(session)
@@ -193,31 +220,56 @@ def reset_project(project_id: str):
 @graph_bp.route('/ontology/generate', methods=['POST'])
 @require_active_plan
 def generate_ontology():
-    """
-    API 1: Upload files, analyze and generate ontology definition
-
-    Request format: multipart/form-data
-
-    Parameters:
-        files: Uploaded files (PDF/MD/TXT), multiple allowed
-        simulation_requirement: Simulation requirement description (required)
-        project_name: Project name (optional)
-        additional_context: Additional notes (optional)
-
-    Returns:
-        {
-            "success": true,
-            "data": {
-                "project_id": "...",
-                "ontology": {
-                    "entity_types": [...],
-                    "edge_types": [...],
-                    "analysis_summary": "..."
-                },
-                "files": [...],
-                "total_text_length": 12345
-            }
-        }
+    """Upload files and generate ontology (creates a project)
+    ---
+    tags:
+      - Graph
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - in: formData
+        name: files
+        type: file
+        required: true
+        description: Document files (PDF/MD/TXT), multiple allowed
+      - in: formData
+        name: simulation_requirement
+        type: string
+        required: true
+        description: Simulation requirement description
+      - in: formData
+        name: project_name
+        type: string
+        required: false
+        default: Unnamed Project
+        description: Project name
+      - in: formData
+        name: additional_context
+        type: string
+        required: false
+        description: Additional notes
+    responses:
+      200:
+        description: Ontology generated successfully
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                project_id: {type: string}
+                project_name: {type: string}
+                ontology: {type: object}
+                analysis_summary: {type: string}
+                files: {type: array, items: {type: object}}
+                total_text_length: {type: integer}
+      400:
+        description: Missing required fields or no valid files
+      500:
+        description: Internal error
     """
     try:
         logger.info("=== Starting ontology generation ===")
@@ -614,8 +666,37 @@ def build_graph():
 @graph_bp.route('/task/<task_id>', methods=['GET'])
 @require_auth
 def get_task(task_id: str):
-    """
-    Query task status
+    """Query task status
+    ---
+    tags:
+      - Graph
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: task_id
+        type: string
+        required: true
+        description: Task ID to query
+    responses:
+      200:
+        description: Task status
+        schema:
+          type: object
+          properties:
+            success: {type: boolean}
+            data:
+              type: object
+              properties:
+                task_id: {type: string}
+                task_type: {type: string}
+                status: {type: string}
+                progress: {type: integer}
+                message: {type: string}
+                result: {type: object}
+                error: {type: string}
+      404:
+        description: Task not found
     """
     with get_db() as session:
         task_repo = TaskRepository(session)

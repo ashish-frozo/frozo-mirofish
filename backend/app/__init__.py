@@ -189,6 +189,36 @@ def create_app(config_class=Config):
     from .middleware.errors import register_error_handlers
     register_error_handlers(app)
 
+    # API documentation
+    from flasgger import Swagger
+    swagger_config = {
+        "headers": [],
+        "specs": [{
+            "endpoint": "apispec",
+            "route": "/api/docs/apispec.json",
+        }],
+        "static_url_path": "/api/docs/static",
+        "swagger_ui": True,
+        "specs_route": "/api/docs/",
+    }
+    swagger_template = {
+        "info": {
+            "title": "MiroFish API",
+            "description": "AI-Powered Swarm Intelligence Engine API",
+            "version": "1.0.0",
+        },
+        "securityDefinitions": {
+            "Bearer": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "JWT Bearer token. Format: 'Bearer {token}'"
+            }
+        },
+        "security": [{"Bearer": []}],
+    }
+    Swagger(app, config=swagger_config, template=swagger_template)
+
     # Register blueprints
     from .api import graph_bp, simulation_bp, report_bp, auth_bp, billing_bp, predict_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
