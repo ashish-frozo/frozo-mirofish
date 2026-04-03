@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..models.db_models import ProjectModel
 from ..config import Config
+from ..services.cache_service import cache_invalidate_pattern
 
 
 class ProjectRepository:
@@ -24,6 +25,7 @@ class ProjectRepository:
         )
         self.session.add(project)
         self.session.flush()
+        cache_invalidate_pattern(f"projects:{user_id}*")
         return project
 
     def get_by_id(self, project_id, user_id=None) -> ProjectModel | None:
@@ -49,6 +51,8 @@ class ProjectRepository:
                 setattr(project, key, value)
         project.updated_at = datetime.now(timezone.utc)
         self.session.flush()
+        if project.user_id:
+            cache_invalidate_pattern(f"projects:{project.user_id}*")
         return project
 
     def delete(self, project_id, user_id) -> bool:
@@ -57,6 +61,7 @@ class ProjectRepository:
             return False
         self.session.delete(project)
         self.session.flush()
+        cache_invalidate_pattern(f"projects:{user_id}*")
         return True
 
     def save_file_to_project(self, project: ProjectModel, file, filename: str) -> dict:
