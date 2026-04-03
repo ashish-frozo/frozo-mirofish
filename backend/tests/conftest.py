@@ -1,5 +1,6 @@
 """Shared test fixtures."""
 
+import os
 import pytest
 from unittest.mock import patch
 from contextlib import contextmanager
@@ -75,19 +76,56 @@ def app(test_engine):
         finally:
             session.close()
 
-    # Patch get_db before importing the app factory
-    with patch("app.db.get_db", _test_get_db), \
-         patch("app.api.auth.get_db", _test_get_db), \
-         patch("app.middleware.auth.get_db", _test_get_db):
-        from app import create_app
-        flask_app = create_app()
-        flask_app.config["TESTING"] = True
-        # Store patched get_db so tests can use it
-        flask_app._test_get_db = _test_get_db
-        yield flask_app
+    # Patch get_db in all modules that import it
+    patches = [
+        patch("app.db.get_db", _test_get_db),
+        patch("app.api.auth.get_db", _test_get_db),
+        patch("app.api.graph.get_db", _test_get_db),
+        patch("app.api.simulation.get_db", _test_get_db),
+        patch("app.api.report.get_db", _test_get_db),
+        patch("app.api.predict.get_db", _test_get_db),
+        patch("app.api.billing.get_db", _test_get_db),
+        patch("app.api.crawl_import.get_db", _test_get_db),
+        patch("app.middleware.auth.get_db", _test_get_db),
+        patch("app.repositories.base.get_db", _test_get_db),
+        # Use in-memory storage for rate limiter (no Redis needed)
+        patch("app.config.Config.REDIS_URL", "memory://"),
+    ]
+
+    for p in patches:
+        p.start()
+
+    from app import create_app
+    flask_app = create_app()
+    flask_app.config["TESTING"] = True
+    flask_app._test_get_db = _test_get_db
+    yield flask_app
+
+    for p in patches:
+        p.stop()
 
 
 @pytest.fixture
 def client(app):
     """Flask test client."""
     return app.test_client()
+
+
+@pytest.fixture
+def auth_headers(client):
+    """Create a test user and return auth headers."""
+    import uuid
+    unique = uuid.uuid4().hex[:8]
+    email = f'testauth_{unique}@example.com'
+    client.post('/api/auth/signup', json={
+        'name': 'Test User',
+        'email': email,
+        'password': 'testpass123'
+    })
+    resp = client.post('/api/auth/login', json={
+        'email': email,
+        'password': 'testpass123'
+    })
+    data = resp.get_json()
+    token = data.get('access_token', '')
+    return {'Authorization': f'Bearer {token}'}
