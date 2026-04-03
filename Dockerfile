@@ -35,16 +35,17 @@ RUN cd frontend && npm run build
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Create non-root user
+# Railway assigns PORT dynamically; default to 5001
+ENV FLASK_DEBUG=false
+ENV FLASK_PORT=5001
+
+WORKDIR /app/backend
+
+# Create non-root user (after all build steps that need root)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Railway assigns PORT dynamically; default to 5001
-ENV FLASK_DEBUG=false
-
 EXPOSE ${PORT:-5001}
 
-# Run Flask backend (serves both API and built frontend)
-WORKDIR /app/backend
-ENV FLASK_PORT=5001
-CMD uv run python run.py
+# Run Flask backend — use --no-sync since deps are already installed
+CMD ["uv", "run", "--no-sync", "python", "run.py"]
