@@ -36,13 +36,18 @@ def start_prediction():
       - in: formData
         name: files
         type: file
-        required: true
-        description: Document files to analyze
+        required: false
+        description: Optional document files to analyze. If omitted, a seed brief is synthesized from the simulation_requirement.
       - in: formData
         name: simulation_requirement
         type: string
         required: true
         description: What to predict / simulate
+      - in: formData
+        name: urls
+        type: string
+        required: false
+        description: Optional newline- or comma-separated URLs to fetch as additional grounding sources.
     responses:
       202:
         description: Prediction started
@@ -67,12 +72,13 @@ def start_prediction():
 
         # Get form data
         files = request.files.getlist('files')
-        simulation_requirement = request.form.get('simulation_requirement', '')
+        simulation_requirement = request.form.get('simulation_requirement', '').strip()
+        urls_raw = request.form.get('urls', '')
 
-        if not files:
-            return jsonify({"success": False, "error": "No files uploaded"}), 400
         if not simulation_requirement:
             return jsonify({"success": False, "error": "Please provide a simulation requirement"}), 400
+
+        urls = _parse_urls(urls_raw)
 
         # Create prediction task
         with get_db() as session:
@@ -84,11 +90,13 @@ def start_prediction():
             )
             task_id = str(task.id)
 
-        # Save uploaded files temporarily
+        # Save uploaded files temporarily (files are optional in prompt-only mode)
         temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
         os.makedirs(temp_dir, exist_ok=True)
         saved_files = []
         for f in files:
+            if not f or not f.filename:
+                continue
             filepath = os.path.join(temp_dir, f.filename)
             f.save(filepath)
             saved_files.append({"filename": f.filename, "path": filepath})
@@ -96,7 +104,7 @@ def start_prediction():
         # Launch background orchestration thread
         thread = threading.Thread(
             target=_run_prediction,
-            args=(task_id, user_id, saved_files, simulation_requirement),
+            args=(task_id, user_id, saved_files, simulation_requirement, urls),
             daemon=True
         )
         thread.start()
@@ -206,7 +214,7 @@ def cancel_prediction(task_id: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_requirement: str):
+def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_requirement: str, urls: list = None):
     """
     Background thread: orchestrates all 5 prediction steps.
     Updates task progress at each stage.
@@ -249,9 +257,24 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         from ..services.ontology_generator import OntologyGenerator
         from ..services.graph_builder import GraphBuilderService
 
-        # Process text from files
-        file_paths = [f["path"] for f in saved_files]
-        all_text = TextProcessor.extract_from_files(file_paths)
+        # Build grounding text from any combination of: files, URLs, synthesized brief.
+        text_chunks: list = []
+
+        if saved_files:
+            file_paths = [f["path"] for f in saved_files]
+            text_chunks.append(TextProcessor.extract_from_files(file_paths))
+
+        if urls:
+            update("ontology", 5, f"Fetching {len(urls)} URL(s)...", stages)
+            url_text = _fetch_urls_text(urls)
+            if url_text:
+                text_chunks.append(url_text)
+
+        if not text_chunks:
+            update("ontology", 5, "Synthesizing seed brief from your prompt...", stages)
+            text_chunks.append(_synthesize_seed_brief(simulation_requirement))
+
+        all_text = "\n\n".join(text_chunks)
 
         # Generate ontology
         ontology_gen = OntologyGenerator()
@@ -483,6 +506,137 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _parse_urls(raw: str) -> list:
+    """Split a raw input (newline/comma/space-separated) into validated http(s) URLs.
+
+    Caps at 5 URLs to bound fetch latency and token usage.
+    """
+    if not raw:
+        return []
+    import re
+    candidates = re.split(r"[\s,]+", raw.strip())
+    urls = []
+    for c in candidates:
+        c = c.strip()
+        if c.startswith("http://") or c.startswith("https://"):
+            urls.append(c)
+        if len(urls) >= 5:
+            break
+    return urls
+
+
+def _fetch_urls_text(urls: list) -> str:
+    """Fetch each URL, strip HTML, and concatenate extracted plain text.
+
+    Uses stdlib only (urllib + html.parser) to avoid adding dependencies.
+    Failures on individual URLs are logged and skipped; the caller falls
+    back to prompt-synthesis if nothing is recoverable.
+    """
+    from urllib.request import Request, urlopen
+    from html.parser import HTMLParser
+
+    class _TextExtractor(HTMLParser):
+        SKIP_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "form"}
+
+        def __init__(self):
+            super().__init__()
+            self.parts = []
+            self.skip_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.SKIP_TAGS:
+                self.skip_depth += 1
+
+        def handle_endtag(self, tag):
+            if tag in self.SKIP_TAGS and self.skip_depth > 0:
+                self.skip_depth -= 1
+
+        def handle_data(self, data):
+            if self.skip_depth == 0:
+                t = data.strip()
+                if t:
+                    self.parts.append(t)
+
+    MAX_CHARS_PER_URL = 20000
+    FETCH_TIMEOUT = 12
+
+    sections = []
+    for url in urls:
+        try:
+            req = Request(url, headers={"User-Agent": "MiroFish/1.0 (+https://mirofish.ai)"})
+            with urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                raw = resp.read(2_000_000)  # cap at ~2 MB
+                ctype = resp.headers.get("Content-Type", "")
+                charset = "utf-8"
+                if "charset=" in ctype:
+                    charset = ctype.split("charset=", 1)[1].split(";")[0].strip() or "utf-8"
+                html = raw.decode(charset, errors="replace")
+            extractor = _TextExtractor()
+            extractor.feed(html)
+            text = " ".join(extractor.parts)
+            text = " ".join(text.split())  # collapse whitespace
+            if not text:
+                continue
+            if len(text) > MAX_CHARS_PER_URL:
+                text = text[:MAX_CHARS_PER_URL] + "… [truncated]"
+            sections.append(f"[Source: {url}]\n{text}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch {url}: {e}")
+
+    return "\n\n".join(sections)
+
+
+def _synthesize_seed_brief(simulation_requirement: str) -> str:
+    """Generate a grounding brief from the user's prompt when no files are uploaded.
+
+    The output feeds the same ontology/graph pipeline as an uploaded document:
+    it names the key entities, stakeholders, background context, and likely
+    signals the agents should react to. The brief is clearly labelled as
+    LLM-generated so downstream steps can surface that provenance.
+    """
+    from ..utils.llm_client import LLMClient
+
+    system = (
+        "You are a research analyst preparing a grounding brief for a multi-agent "
+        "simulation. Given a prediction question, produce a concise background "
+        "document the simulation engine can extract entities and relationships from."
+    )
+    user = (
+        f"Prediction question: {simulation_requirement}\n\n"
+        "Write a 400-700 word brief covering:\n"
+        "1. Core topic summary (what this is about, in plain language).\n"
+        "2. Key entities: organizations, people, products, policies, places — "
+        "   use concrete real-world names where relevant.\n"
+        "3. Stakeholder groups likely to react (developers, investors, regulators, "
+        "   consumers, etc.) and their probable concerns.\n"
+        "4. Recent context and background signals that shape sentiment.\n"
+        "5. Known uncertainties or open questions.\n\n"
+        "Write in neutral reportage tone. Do not fabricate specific statistics, "
+        "quotes, or dated events you are not confident about — prefer qualitative "
+        "framing. Do not add headers like 'Brief:' — just produce the prose."
+    )
+
+    try:
+        client = LLMClient()
+        body = client.chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.4,
+            max_tokens=1200,
+        )
+    except Exception as e:
+        logger.warning(f"Seed synthesis failed, falling back to prompt-only text: {e}")
+        body = simulation_requirement
+
+    header = (
+        "[Synthesized seed brief — generated by LLM from the user's prompt. "
+        "No source documents were provided.]\n\n"
+    )
+    return header + (body or simulation_requirement)
 
 
 # ---------------------------------------------------------------------------

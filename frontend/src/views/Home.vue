@@ -17,14 +17,17 @@
         <!-- Header Section -->
         <header class="page-header">
           <h1 class="page-title">Create a New Prediction</h1>
-          <p class="page-subtitle">Upload your documents and describe what you want to predict.</p>
+          <p class="page-subtitle">Describe what you want to predict. Adding documents is optional — they make predictions more grounded.</p>
         </header>
 
         <!-- Creation Form -->
         <section class="creation-form">
           <!-- Upload Zone -->
           <div class="form-section">
-            <label class="section-label">Context Documents</label>
+            <div class="section-label-row">
+              <label class="section-label">Context Documents <span class="optional-tag">Optional</span></label>
+              <span class="section-hint">Skip to run in Quick Mode</span>
+            </div>
             <div
               class="upload-zone"
               :class="{
@@ -54,7 +57,7 @@
               <div v-if="files.length === 0" class="upload-placeholder">
                 <span class="material-symbols-outlined upload-placeholder__icon" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
                 <p class="upload-placeholder__title">Drag & drop files here or click to browse</p>
-                <p class="upload-placeholder__hint">Supported formats: PDF, TXT, MD</p>
+                <p class="upload-placeholder__hint">PDF, TXT, MD — or skip to let the LLM synthesize a brief from your prompt</p>
               </div>
             </div>
 
@@ -80,6 +83,25 @@
                 Add more
               </button>
             </div>
+          </div>
+
+          <!-- URL Input -->
+          <div class="form-section">
+            <div class="section-label-row">
+              <label class="section-label" for="source-urls">Source URLs <span class="optional-tag">Optional</span></label>
+              <span class="section-hint">Up to 5 article URLs — we'll fetch and extract the text</span>
+            </div>
+            <textarea
+              id="source-urls"
+              v-model="formData.urls"
+              class="url-textarea"
+              placeholder="https://example.com/article-1&#10;https://example.com/article-2"
+              rows="3"
+              :disabled="predicting"
+            ></textarea>
+            <p v-if="invalidUrlCount > 0" class="field-warning">
+              {{ invalidUrlCount }} line(s) don't look like http(s) URLs and will be ignored.
+            </p>
           </div>
 
           <!-- Text Area Input -->
@@ -116,12 +138,19 @@
               @click="startOneClickPredict"
               :disabled="!canSubmit || predicting"
             >
-              <span v-if="!predicting">Start Prediction</span>
+              <span v-if="!predicting">{{ isQuickMode ? 'Start Prediction (Quick Mode)' : 'Start Prediction' }}</span>
               <span v-else>Starting...</span>
               <span v-if="!predicting" class="material-symbols-outlined submit-btn__icon">auto_awesome</span>
               <span v-else class="spinner"></span>
             </button>
-            <p class="action-hint">Processing typically takes 3-10 minutes. We'll email you when it's ready.</p>
+            <p class="action-hint">
+              <template v-if="isQuickMode">
+                Quick Mode: we'll synthesize a brief from your prompt. For more grounded predictions, attach documents or add URLs.
+              </template>
+              <template v-else>
+                Using {{ files.length }} file(s) and {{ parsedUrls.length }} URL(s). Processing typically takes 3-10 minutes — we'll email you when it's ready.
+              </template>
+            </p>
           </div>
 
           <!-- Error Message -->
@@ -152,7 +181,26 @@ onMounted(() => {
 
 // Form data
 const formData = ref({
-  simulationRequirement: ''
+  simulationRequirement: '',
+  urls: ''
+})
+
+// Parse URLs: split on newline/comma/space, keep only http(s), cap at 5
+const parsedUrls = computed(() => {
+  const lines = (formData.value.urls || '')
+    .split(/[\s,]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+  const valid = lines.filter(l => /^https?:\/\//i.test(l))
+  return valid.slice(0, 5)
+})
+
+const invalidUrlCount = computed(() => {
+  const lines = (formData.value.urls || '')
+    .split(/[\s,]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+  return lines.length - lines.filter(l => /^https?:\/\//i.test(l)).length
 })
 
 // File list
@@ -174,10 +222,13 @@ const examplePrompts = [
   'Market response to a major tech layoff announcement'
 ]
 
-// Computed: can submit
+// Computed: can submit — prompt is required; files are optional (Quick Mode)
 const canSubmit = computed(() => {
-  return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
+  return formData.value.simulationRequirement.trim() !== ''
 })
+
+// Quick Mode = no grounding sources (neither files nor URLs)
+const isQuickMode = computed(() => files.value.length === 0 && parsedUrls.value.length === 0)
 
 // Trigger file selection
 const triggerFileInput = () => {
@@ -236,6 +287,9 @@ const startOneClickPredict = async () => {
     const fd = new FormData()
     files.value.forEach(file => fd.append('files', file))
     fd.append('simulation_requirement', formData.value.simulationRequirement)
+    if (parsedUrls.value.length > 0) {
+      fd.append('urls', parsedUrls.value.join('\n'))
+    }
 
     const res = await startPrediction(fd)
     const taskId = res.data.task_id
@@ -378,6 +432,55 @@ const startOneClickPredict = async () => {
   font-size: 0.75rem;
   font-weight: 500;
   color: #777587;
+}
+
+.optional-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: #EEF2FF;
+  color: #4338CA;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.section-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #777587;
+}
+
+.url-textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #D9D7E1;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.8125rem;
+  resize: vertical;
+  background: #FFF;
+  color: #191c1e;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.url-textarea:focus {
+  outline: none;
+  border-color: #4338CA;
+}
+
+.url-textarea:disabled {
+  background: #F5F5F7;
+  cursor: not-allowed;
+}
+
+.field-warning {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #B45309;
 }
 
 /* ── Upload Zone ── */
