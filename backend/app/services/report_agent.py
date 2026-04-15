@@ -1178,9 +1178,10 @@ class ReportAgent:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3
+                temperature=0.3,
+                max_tokens=2048,
             )
-            
+
             if progress_callback:
                 progress_callback("planning", 80, "Parsing outline structure...")
             
@@ -1827,7 +1828,8 @@ class ReportAgent:
         for iteration in range(max_iterations):
             response = self.llm.chat(
                 messages=messages,
-                temperature=0.5
+                temperature=0.5,
+                max_tokens=2048,
             )
             
             # Parse tool calls
@@ -1868,7 +1870,8 @@ class ReportAgent:
         # Maximum iterations reached, get final response
         final_response = self.llm.chat(
             messages=messages,
-            temperature=0.5
+            temperature=0.5,
+            max_tokens=2048,
         )
         
         # Clean response

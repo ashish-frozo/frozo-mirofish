@@ -18,21 +18,22 @@ _cost_logger = get_logger('mirofish.llm.cost')
 # Unknown models fall back to (0, 0) — tokens still logged, cost shown as "n/a".
 # Update as pricing changes; this is a rough running estimate, not an invoice.
 _PRICE_TABLE: Dict[str, tuple] = {
+    # Prices validated against OpenRouter catalog 2026-04-15. Refresh via:
+    #   curl -s https://openrouter.ai/api/v1/models | jq '.data[] | {id, pricing}'
     # Google
     "google/gemini-2.0-flash-001": (0.10, 0.40),
     "google/gemini-2.5-flash": (0.30, 2.50),
     # DeepSeek
-    "deepseek/deepseek-chat": (0.14, 0.28),
-    "deepseek/deepseek-chat-v3": (0.14, 0.28),
+    "deepseek/deepseek-chat": (0.32, 0.89),
     # OpenAI
     "openai/gpt-4o-mini": (0.15, 0.60),
     "openai/gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
     # Meta
-    "meta-llama/llama-3.3-70b-instruct": (0.13, 0.40),
+    "meta-llama/llama-3.3-70b-instruct": (0.10, 0.32),
     # Qwen
-    "qwen/qwen-2.5-72b-instruct": (0.10, 0.30),
+    "qwen/qwen-2.5-72b-instruct": (0.12, 0.39),
     # Anthropic intentionally omitted — project policy: do not use Claude.
 }
 

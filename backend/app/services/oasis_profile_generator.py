@@ -424,8 +424,8 @@ class OasisProfileGenerator:
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # Lower temperature on each retry
-                    # No max_tokens set, let the LLM generate freely
+                    temperature=0.7 - (attempt * 0.1),  # Lower temperature on each retry
+                    max_tokens=1500,  # One persona fits comfortably
                 )
                 record_usage(response, self.model_name)
 
@@ -565,6 +565,8 @@ class OasisProfileGenerator:
             return
         prompt = self._build_batch_persona_prompt(chunk, is_individual)
         try:
+            # Bound output: ~600 tokens per persona × batch size + slack.
+            batch_max_tokens = max(1500, len(chunk) * 700)
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
@@ -573,6 +575,7 @@ class OasisProfileGenerator:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.6,
+                max_tokens=batch_max_tokens,
             )
             record_usage(response, self.model_name)
             content = response.choices[0].message.content or "{}"

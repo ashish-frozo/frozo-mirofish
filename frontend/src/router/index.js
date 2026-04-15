@@ -37,6 +37,12 @@ const routes = [
     component: () => import('../views/Dashboard.vue')
   },
   {
+    path: '/admin/costs',
+    name: 'AdminCosts',
+    component: () => import('../views/AdminCosts.vue'),
+    meta: { adminOnly: true }
+  },
+  {
     path: '/process/:projectId',
     name: 'Process',
     component: Process,
@@ -132,6 +138,17 @@ router.beforeEach(async (to, from, next) => {
   const planRequired = ['NewProject']
   if (planRequired.includes(to.name) && !auth.canCreateProjects) {
     return next('/pricing')
+  }
+
+  // Admin-only routes — server enforces the hard check; this is just UX so
+  // non-admins don't see a broken page.
+  if (to.meta?.adminOnly) {
+    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'ashish.dhiman@frozo.ai')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    const email = (auth.user?.email || '').toLowerCase()
+    if (!adminEmails.includes(email)) {
+      return next('/dashboard')
+    }
   }
 
   next()

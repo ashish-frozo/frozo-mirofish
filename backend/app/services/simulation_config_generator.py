@@ -450,8 +450,8 @@ class SimulationConfigGenerator:
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # Lower temperature on each retry
-                    # No max_tokens set, let the LLM generate freely
+                    temperature=0.7 - (attempt * 0.1),  # Lower temperature on each retry
+                    max_tokens=3000,  # Config JSON fits well under this
                 )
                 record_usage(response, self.model_name)
 

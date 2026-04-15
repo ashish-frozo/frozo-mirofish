@@ -3,9 +3,15 @@ Ontology generation service
 Interface 1: Analyze text content and generate entity and relationship type definitions suitable for social simulation
 """
 
+import hashlib
 import json
 from typing import Dict, Any, List, Optional
+from ..config import Config
 from ..utils.llm_client import LLMClient
+from .cache_service import cache_get, cache_set
+from ..utils.logger import get_logger
+
+_logger = get_logger('mirofish.ontology')
 
 
 # System prompt for ontology generation
@@ -188,22 +194,49 @@ class OntologyGenerator:
             additional_context
         )
 
+        # Cache key: stable across repeat runs that feed identical text +
+        # simulation requirement to the same model. Skipping this call avoids
+        # the single most expensive per-document LLM step.
+        cache_key = self._ontology_cache_key(
+            user_message, simulation_requirement
+        )
+        cached = cache_get(cache_key)
+        if isinstance(cached, dict) and cached.get("entity_types"):
+            _logger.info("ontology cache hit")
+            return cached
+
         messages = [
             {"role": "system", "content": ONTOLOGY_SYSTEM_PROMPT},
             {"role": "user", "content": user_message}
         ]
 
-        # Call LLM
+        # Call LLM. 4096 was overkill — real ontologies fit well under 2000
+        # tokens; bounding it caps runaway generations and cost per call.
         result = self.llm_client.chat_json(
             messages=messages,
             temperature=0.3,
-            max_tokens=4096
+            max_tokens=2000
         )
 
         # Validate and post-process
         result = self._validate_and_process(result)
 
+        # Only cache well-formed ontologies (validator populates entity_types)
+        if isinstance(result, dict) and result.get("entity_types"):
+            cache_set(cache_key, result, ttl=60 * 60 * 24 * 7)
         return result
+
+    def _ontology_cache_key(self, user_message: str, simulation_requirement: str) -> str:
+        """Hash the user_message (already includes truncated doc text + prompt)
+        plus the active model. Different models get different cache entries
+        because ontology quality varies.
+        """
+        payload = (
+            (user_message or "") + "||" +
+            (simulation_requirement or "") + "||" +
+            (getattr(self.llm_client, "model", None) or Config.LLM_MODEL_NAME)
+        ).encode("utf-8")
+        return "ontology:" + hashlib.sha256(payload).hexdigest()[:24]
 
     # Maximum text length sent to LLM (50,000 characters)
     MAX_TEXT_LENGTH_FOR_LLM = 50000
