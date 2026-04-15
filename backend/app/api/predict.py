@@ -248,6 +248,10 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
 
     stages = {}
 
+    # Snapshot LLM spend so we can report the delta for this run at the end.
+    from ..utils.llm_client import get_cost_totals
+    cost_baseline = get_cost_totals()
+
     try:
         # ==================== STEP 1: Ontology + Graph Build ====================
         update("ontology", 5, "Generating ontology from documents...", stages)
@@ -491,7 +495,12 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
                 "stages": stages,
             })
 
-        logger.info(f"Prediction complete: task={task_id}, project={project_id}")
+        delta = _cost_delta(cost_baseline)
+        logger.info(
+            f"Prediction complete: task={task_id}, project={project_id} | "
+            f"llm calls={delta['calls']} tokens_in={delta['prompt_tokens']} "
+            f"tokens_out={delta['completion_tokens']} cost=${delta['cost_usd']:.4f}"
+        )
 
     except Exception as e:
         if "Cancelled" in str(e):
@@ -506,6 +515,18 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _cost_delta(baseline: dict) -> dict:
+    """Return the difference between current LLM totals and a prior snapshot."""
+    from ..utils.llm_client import get_cost_totals
+    now = get_cost_totals()
+    return {
+        "calls": now["calls"] - baseline.get("calls", 0),
+        "prompt_tokens": now["prompt_tokens"] - baseline.get("prompt_tokens", 0),
+        "completion_tokens": now["completion_tokens"] - baseline.get("completion_tokens", 0),
+        "cost_usd": now["cost_usd"] - baseline.get("cost_usd", 0.0),
+    }
 
 
 def _parse_urls(raw: str) -> list:
