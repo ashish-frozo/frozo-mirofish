@@ -55,6 +55,19 @@ def require_auth(f):
     return decorated
 
 
+def require_admin(f):
+    """Decorator: require an authenticated user whose email is in Config.ADMIN_EMAILS."""
+    @functools.wraps(f)
+    @require_auth
+    def decorated(*args, **kwargs):
+        email = (getattr(g.current_user, "email", "") or "").lower()
+        if email not in Config.ADMIN_EMAILS:
+            return jsonify({"error": "Admin access required", "code": "ADMIN_REQUIRED"}), 403
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 def require_active_plan(f):
     """Decorator: require non-expired trial or active paid subscription."""
     @functools.wraps(f)

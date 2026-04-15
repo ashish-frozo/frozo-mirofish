@@ -53,12 +53,35 @@ def get_cost_totals() -> Dict[str, Any]:
         return dict(_TOTALS)
 
 
+def _current_task_id() -> Optional[str]:
+    """Return the task_id that owns the currently running LLM call, if any.
+
+    Resolved from (in order):
+      1. ``MIROFISH_COST_TASK_ID`` env var — set by the parent process on
+         ``subprocess.Popen`` so camel-oasis simulations attribute back to
+         their prediction.
+      2. Nothing — the call is untracked per-task but still rolls into the
+         process-wide totals.
+
+    Env var is used rather than a thread-local because it must propagate
+    into subprocesses and into thread-pool workers spun by camel-oasis.
+    The accepted trade-off is that two overlapping predictions in the same
+    Flask process will cross-attribute any Flask-side LLM calls made
+    between the start of one and the end of the other.
+    """
+    import os as _os
+    v = _os.environ.get("MIROFISH_COST_TASK_ID")
+    return v if v else None
+
+
 def record_usage(response: Any, model: str) -> None:
     """Log token/cost from a raw OpenAI-SDK response and roll into running totals.
 
     Idempotent: tags the response with ``_mirofish_tracked`` on first call so
     the monkey-patch in :func:`install_openai_cost_tracker` and any explicit
-    call sites can coexist without double-counting.
+    call sites can coexist without double-counting. Also bumps the per-task
+    Redis counters for whichever task_id is currently active, so admins can
+    see cost-per-prediction.
     """
     try:
         if getattr(response, "_mirofish_tracked", False):
@@ -82,6 +105,17 @@ def record_usage(response: Any, model: str) -> None:
             running["calls"], running["prompt_tokens"],
             running["completion_tokens"], running["cost_usd"],
         )
+
+        # Per-task attribution. Imported inline to keep llm_client importable
+        # from contexts (scripts, tests) that don't bring the full service layer.
+        task_id = _current_task_id()
+        if task_id:
+            try:
+                from ..services.cost_tracker import bump as _bump_task
+                _bump_task(task_id, pt, ct, cost)
+            except Exception as e:
+                _cost_logger.debug("per-task cost attribution skipped: %s", e)
+
         try:
             setattr(response, "_mirofish_tracked", True)
         except Exception:

@@ -250,7 +250,12 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
 
     # Snapshot LLM spend so we can report the delta for this run at the end.
     from ..utils.llm_client import get_cost_totals
+    from ..services import cost_tracker
     cost_baseline = get_cost_totals()
+
+    # Mark this thread (and any subprocesses it spawns) as owning ``task_id``
+    # for per-prediction cost attribution. See _current_task_id for trade-offs.
+    os.environ["MIROFISH_COST_TASK_ID"] = str(task_id)
 
     try:
         # ==================== STEP 1: Ontology + Graph Build ====================
@@ -485,21 +490,35 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
             logger.warning(f"Failed to send report email: {e}")
 
         # ==================== COMPLETE ====================
+        # Per-task cost from Redis includes subprocess (OASIS) spend; the
+        # process-local delta does not, so Redis is authoritative here.
+        task_cost = cost_tracker.get(task_id)
+
         with get_db() as session:
             task_repo = TaskRepository(session)
+            task = task_repo.get_by_id(task_id)
+            if task:
+                md = dict(task.metadata_ or {})
+                md["cost"] = task_cost
+                task.metadata_ = md
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(task, "metadata_")
+                session.flush()
             task_repo.complete(task_id, result={
                 "project_id": project_id,
                 "graph_id": graph_id,
                 "simulation_id": simulation_id,
                 "report_id": report_id,
                 "stages": stages,
+                "cost": task_cost,
             })
 
         delta = _cost_delta(cost_baseline)
         logger.info(
             f"Prediction complete: task={task_id}, project={project_id} | "
-            f"llm calls={delta['calls']} tokens_in={delta['prompt_tokens']} "
-            f"tokens_out={delta['completion_tokens']} cost=${delta['cost_usd']:.4f}"
+            f"flask-only delta calls={delta['calls']} tokens_in={delta['prompt_tokens']} "
+            f"tokens_out={delta['completion_tokens']} cost=${delta['cost_usd']:.4f} | "
+            f"incl-subprocess calls={task_cost['calls']} cost=${task_cost['cost_usd']:.4f}"
         )
 
     except Exception as e:
@@ -515,6 +534,13 @@ def _run_prediction(task_id: str, user_id: str, saved_files: list, simulation_re
         temp_dir = os.path.join(Config.UPLOAD_FOLDER, 'temp', task_id)
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+        # Release the task-id attribution and delete the Redis counter.
+        # Totals are already persisted into task.metadata_/result above for
+        # successful runs; failures leave totals in Redis until TTL expiry,
+        # which lets admins still audit partial spend on a failed prediction.
+        if os.environ.get("MIROFISH_COST_TASK_ID") == str(task_id):
+            os.environ.pop("MIROFISH_COST_TASK_ID", None)
 
 
 def _cost_delta(baseline: dict) -> dict:

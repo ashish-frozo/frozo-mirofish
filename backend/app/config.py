@@ -27,6 +27,13 @@ class Config:
     # JSON configuration - disable ASCII escaping to display non-ASCII characters directly (instead of \uXXXX format)
     JSON_AS_ASCII = False
 
+    # Admin access. Comma-separated list of emails that gate /api/admin/*.
+    ADMIN_EMAILS = [
+        e.strip().lower()
+        for e in os.environ.get('ADMIN_EMAILS', 'ashish.dhiman@frozo.ai').split(',')
+        if e.strip()
+    ]
+
     # LLM configuration (unified OpenAI-compatible format)
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
