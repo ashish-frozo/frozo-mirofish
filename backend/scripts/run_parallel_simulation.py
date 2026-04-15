@@ -102,6 +102,14 @@ else:
         load_dotenv(_backend_env)
         print(f"Loaded environment config: {_backend_env}")
 
+# Track openai spend from camel-oasis and any other callers in this subprocess.
+# Must run before camel-oasis imports so the monkey-patch wraps its client.
+try:
+    from app.utils.llm_client import install_openai_cost_tracker
+    install_openai_cost_tracker()
+except Exception as _e:
+    print(f"[warn] cost tracker not installed: {_e}", file=sys.stderr)
+
 
 class MaxTokensWarningFilter(logging.Filter):
     """Filter out camel-ai warnings about max_tokens (we intentionally don't set max_tokens, letting the model decide)"""

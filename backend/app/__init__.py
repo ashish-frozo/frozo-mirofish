@@ -14,10 +14,15 @@ from flask_cors import CORS
 
 from .config import Config
 from .utils.logger import setup_logger, get_logger
+from .utils.llm_client import install_openai_cost_tracker
 
 
 def create_app(config_class=Config):
     """Flask application factory function"""
+    # Install LLM cost tracker as early as possible so every downstream
+    # openai.*.completions.create in this process is counted.
+    install_openai_cost_tracker()
+
     app = Flask(__name__, static_folder=None)
     app.config.from_object(config_class)
 

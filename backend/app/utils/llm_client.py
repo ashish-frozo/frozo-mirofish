@@ -56,11 +56,13 @@ def get_cost_totals() -> Dict[str, Any]:
 def record_usage(response: Any, model: str) -> None:
     """Log token/cost from a raw OpenAI-SDK response and roll into running totals.
 
-    Use this from callers that invoke ``client.chat.completions.create`` directly
-    (i.e. bypass ``LLMClient.chat``) so their spend is still tracked. Safe to
-    call with a missing/partial ``response.usage`` — failures are swallowed.
+    Idempotent: tags the response with ``_mirofish_tracked`` on first call so
+    the monkey-patch in :func:`install_openai_cost_tracker` and any explicit
+    call sites can coexist without double-counting.
     """
     try:
+        if getattr(response, "_mirofish_tracked", False):
+            return
         usage = getattr(response, "usage", None)
         if usage is None:
             return
@@ -80,8 +82,64 @@ def record_usage(response: Any, model: str) -> None:
             running["calls"], running["prompt_tokens"],
             running["completion_tokens"], running["cost_usd"],
         )
+        try:
+            setattr(response, "_mirofish_tracked", True)
+        except Exception:
+            pass
     except Exception as e:
         _cost_logger.debug("cost accounting skipped: %s", e)
+
+
+_PATCH_INSTALLED = False
+
+
+def install_openai_cost_tracker() -> None:
+    """Monkey-patch openai SDK so every chat.completions.create is tracked.
+
+    Covers all callers in the current process — including third-party libraries
+    like camel-oasis that spin up their own OpenAI clients. Call once at process
+    startup (Flask ``create_app`` for the API, and the top of each standalone
+    simulation script). Safe to call multiple times; re-installs are no-ops.
+
+    Streaming responses return an iterator rather than a ChatCompletion and
+    therefore carry no usage block — those are silently skipped.
+    """
+    global _PATCH_INSTALLED
+    if _PATCH_INSTALLED:
+        return
+    try:
+        from openai.resources.chat import completions as _sync_mod
+        from openai.resources.chat import completions as _async_mod  # noqa: F401
+        SyncCompletions = _sync_mod.Completions
+        AsyncCompletions = _sync_mod.AsyncCompletions
+
+        _orig_sync_create = SyncCompletions.create
+        _orig_async_create = AsyncCompletions.create
+
+        def _tracked_sync_create(self, *args, **kwargs):
+            resp = _orig_sync_create(self, *args, **kwargs)
+            try:
+                model = kwargs.get("model") or getattr(resp, "model", "unknown")
+                record_usage(resp, model)
+            except Exception:
+                pass
+            return resp
+
+        async def _tracked_async_create(self, *args, **kwargs):
+            resp = await _orig_async_create(self, *args, **kwargs)
+            try:
+                model = kwargs.get("model") or getattr(resp, "model", "unknown")
+                record_usage(resp, model)
+            except Exception:
+                pass
+            return resp
+
+        SyncCompletions.create = _tracked_sync_create
+        AsyncCompletions.create = _tracked_async_create
+        _PATCH_INSTALLED = True
+        _cost_logger.info("openai cost tracker installed")
+    except Exception as e:
+        _cost_logger.warning("failed to install openai cost tracker: %s", e)
 
 
 class LLMClient:
