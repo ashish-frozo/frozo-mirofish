@@ -53,6 +53,37 @@ def get_cost_totals() -> Dict[str, Any]:
         return dict(_TOTALS)
 
 
+def record_usage(response: Any, model: str) -> None:
+    """Log token/cost from a raw OpenAI-SDK response and roll into running totals.
+
+    Use this from callers that invoke ``client.chat.completions.create`` directly
+    (i.e. bypass ``LLMClient.chat``) so their spend is still tracked. Safe to
+    call with a missing/partial ``response.usage`` — failures are swallowed.
+    """
+    try:
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+        pt = int(getattr(usage, "prompt_tokens", 0) or 0)
+        ct = int(getattr(usage, "completion_tokens", 0) or 0)
+        cost = _estimate_cost(model, pt, ct)
+        cost_str = f"${cost:.6f}" if model in _PRICE_TABLE else "n/a"
+        with _TOTALS_LOCK:
+            _TOTALS["prompt_tokens"] += pt
+            _TOTALS["completion_tokens"] += ct
+            _TOTALS["cost_usd"] += cost
+            _TOTALS["calls"] += 1
+            running = dict(_TOTALS)
+        _cost_logger.info(
+            "llm_call model=%s in=%d out=%d cost=%s | run_totals calls=%d in=%d out=%d cost=$%.4f",
+            model, pt, ct, cost_str,
+            running["calls"], running["prompt_tokens"],
+            running["completion_tokens"], running["cost_usd"],
+        )
+    except Exception as e:
+        _cost_logger.debug("cost accounting skipped: %s", e)
+
+
 class LLMClient:
     """LLM client"""
 
@@ -104,30 +135,7 @@ class LLMClient:
             kwargs["response_format"] = response_format
 
         response = self.client.chat.completions.create(**kwargs)
-
-        # Token & cost accounting. usage may be absent on some proxies; treat as best-effort.
-        try:
-            usage = getattr(response, "usage", None)
-            if usage is not None:
-                pt = int(getattr(usage, "prompt_tokens", 0) or 0)
-                ct = int(getattr(usage, "completion_tokens", 0) or 0)
-                cost = _estimate_cost(self.model, pt, ct)
-                cost_str = f"${cost:.6f}" if self.model in _PRICE_TABLE else "n/a"
-                with _TOTALS_LOCK:
-                    _TOTALS["prompt_tokens"] += pt
-                    _TOTALS["completion_tokens"] += ct
-                    _TOTALS["cost_usd"] += cost
-                    _TOTALS["calls"] += 1
-                    running = dict(_TOTALS)
-                _cost_logger.info(
-                    "llm_call model=%s in=%d out=%d cost=%s | run_totals calls=%d in=%d out=%d cost=$%.4f",
-                    self.model, pt, ct, cost_str,
-                    running["calls"], running["prompt_tokens"],
-                    running["completion_tokens"], running["cost_usd"],
-                )
-        except Exception as e:
-            _cost_logger.debug("cost accounting skipped: %s", e)
-
+        record_usage(response, self.model)
         content = response.choices[0].message.content
         # Some models (e.g., MiniMax M2.5) may include <think> reasoning content that needs to be removed
         content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()

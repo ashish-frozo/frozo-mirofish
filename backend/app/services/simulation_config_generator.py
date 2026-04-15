@@ -20,6 +20,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.llm_client import record_usage
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
@@ -452,6 +453,7 @@ class SimulationConfigGenerator:
                     temperature=0.7 - (attempt * 0.1)  # Lower temperature on each retry
                     # No max_tokens set, let the LLM generate freely
                 )
+                record_usage(response, self.model_name)
 
                 content = response.choices[0].message.content
                 finish_reason = response.choices[0].finish_reason
