@@ -18,10 +18,6 @@ _cost_logger = get_logger('mirofish.llm.cost')
 # Unknown models fall back to (0, 0) — tokens still logged, cost shown as "n/a".
 # Update as pricing changes; this is a rough running estimate, not an invoice.
 _PRICE_TABLE: Dict[str, tuple] = {
-    # Anthropic
-    "anthropic/claude-haiku-4-5": (1.00, 5.00),
-    "anthropic/claude-sonnet-4-5": (3.00, 15.00),
-    "anthropic/claude-opus-4-5": (15.00, 75.00),
     # Google
     "google/gemini-2.0-flash-001": (0.10, 0.40),
     "google/gemini-2.5-flash": (0.30, 2.50),
@@ -35,6 +31,9 @@ _PRICE_TABLE: Dict[str, tuple] = {
     "gpt-4o": (2.50, 10.00),
     # Meta
     "meta-llama/llama-3.3-70b-instruct": (0.13, 0.40),
+    # Qwen
+    "qwen/qwen-2.5-72b-instruct": (0.10, 0.30),
+    # Anthropic intentionally omitted — project policy: do not use Claude.
 }
 
 # Process-wide running totals. Thread-safe, reset on process restart.

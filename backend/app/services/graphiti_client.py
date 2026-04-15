@@ -14,6 +14,25 @@ from ..utils.logger import get_logger
 logger = get_logger('mirofish.graphiti')
 
 
+def _graphiti_llm_config():
+    """Build an ``LLMConfig`` that routes graphiti through our configured
+    LLM provider (OpenRouter in prod) rather than the default ``api.openai.com``.
+
+    Without this, graphiti-core's ``OpenAIClient`` silently reaches for
+    ``OPENAI_API_KEY`` and hits OpenAI directly — bypassing cost tracking
+    and any OpenRouter-only routing setup. Model is driven by
+    ``Config.GRAPHITI_MODEL_NAME`` so admins can flip graphiti independently
+    if a model misbehaves on its JSON-schema prompts.
+    """
+    from graphiti_core.llm_client import LLMConfig
+    return LLMConfig(
+        api_key=Config.LLM_API_KEY,
+        base_url=Config.LLM_BASE_URL,
+        model=Config.GRAPHITI_MODEL_NAME,
+        small_model=Config.GRAPHITI_MODEL_NAME,
+    )
+
+
 @dataclass
 class GraphNode:
     """Represents a node/entity from the knowledge graph."""
@@ -111,21 +130,15 @@ class GraphitiClient:
         self._neo4j_driver = None
 
     def _new_graphiti(self):
-        """Create a fresh Graphiti instance with gpt-4o-mini for cost efficiency."""
+        """Create a fresh Graphiti instance routed through our configured LLM provider."""
         from graphiti_core import Graphiti
-        from graphiti_core.llm_client import OpenAIClient, LLMConfig
-
-        llm_config = LLMConfig(
-            model="gpt-4o-mini",
-            small_model="gpt-4o-mini",
-        )
-        llm_client = OpenAIClient(config=llm_config)
+        from graphiti_core.llm_client import OpenAIClient
 
         return Graphiti(
             uri=Config.NEO4J_URI,
             user=Config.NEO4J_USER,
             password=Config.NEO4J_PASSWORD,
-            llm_client=llm_client,
+            llm_client=OpenAIClient(config=_graphiti_llm_config()),
         )
 
     def _get_neo4j(self):
@@ -184,9 +197,8 @@ class GraphitiClient:
 
         async def _add():
             from graphiti_core import Graphiti
-            from graphiti_core.llm_client import OpenAIClient, LLMConfig
-            _cfg = LLMConfig(model="gpt-4o-mini", small_model="gpt-4o-mini")
-            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_cfg))
+            from graphiti_core.llm_client import OpenAIClient
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_graphiti_llm_config()))
             try:
                 await g.add_episode(
                     name=source,
@@ -225,9 +237,8 @@ class GraphitiClient:
 
         async def _search():
             from graphiti_core import Graphiti
-            from graphiti_core.llm_client import OpenAIClient, LLMConfig
-            _cfg = LLMConfig(model="gpt-4o-mini", small_model="gpt-4o-mini")
-            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_cfg))
+            from graphiti_core.llm_client import OpenAIClient
+            g = Graphiti(uri=Config.NEO4J_URI, user=Config.NEO4J_USER, password=Config.NEO4J_PASSWORD, llm_client=OpenAIClient(config=_graphiti_llm_config()))
             try:
                 results = await g.search(
                     query=query,

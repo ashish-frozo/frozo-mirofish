@@ -41,7 +41,13 @@ class Config:
     # Cheap-tier model for bulk work (agent profile generation, simulation
     # actions, seed brief synthesis). Falls back to LLM_MODEL_NAME when unset.
     # Example (via OpenRouter): 'google/gemini-2.0-flash-001' or 'deepseek/deepseek-chat'.
-    LLM_CHEAP_MODEL_NAME = os.environ.get('LLM_CHEAP_MODEL_NAME') or os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+    LLM_CHEAP_MODEL_NAME = os.environ.get('LLM_CHEAP_MODEL_NAME') or os.environ.get('LLM_MODEL_NAME', 'openai/gpt-4o-mini')
+
+    # Graphiti knowledge-graph extraction. Uses the cheap tier by default so
+    # graph-build calls flow through the same OpenRouter key. Flip this
+    # (e.g. GRAPHITI_MODEL_NAME=openai/gpt-4o-mini) if a model misbehaves on
+    # graphiti's JSON-schema prompts without changing the rest of the stack.
+    GRAPHITI_MODEL_NAME = os.environ.get('GRAPHITI_MODEL_NAME') or LLM_CHEAP_MODEL_NAME
 
     # File upload configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
