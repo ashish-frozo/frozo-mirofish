@@ -20,6 +20,7 @@ from openai import OpenAI
 from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import record_usage
+from .cache_service import cache_get, cache_set
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.oasis_profile')
@@ -348,6 +349,30 @@ class OasisProfileGenerator:
         """Check if this is a group/institution entity type"""
         return entity_type.lower() in self.GROUP_ENTITY_TYPES
 
+    def _profile_cache_key(
+        self,
+        entity_name: str,
+        entity_type: str,
+        entity_summary: str,
+        entity_attributes: Dict[str, Any],
+        context: str,
+    ) -> str:
+        """Stable fingerprint for (entity × model). Ignores transient fields."""
+        import hashlib
+        payload = json.dumps(
+            {
+                "name": entity_name,
+                "type": entity_type,
+                "summary": entity_summary or "",
+                # sort_keys keeps the hash stable across attribute insertion order
+                "attrs": entity_attributes or {},
+                "context": context or "",
+                "model": self.model_name,
+            },
+            sort_keys=True, ensure_ascii=False, default=str,
+        ).encode("utf-8")
+        return "profile:" + hashlib.sha256(payload).hexdigest()[:24]
+
     def _generate_profile_with_llm(
         self,
         entity_name: str,
@@ -363,6 +388,17 @@ class OasisProfileGenerator:
         - Individual entities: generate specific character profiles
         - Group/institution entities: generate representative account profiles
         """
+
+        # Cache hit → skip the LLM call entirely. Keyed on a fingerprint of
+        # the entity fields that materially change the output + the model name,
+        # so different models keep distinct cache entries.
+        cache_key = self._profile_cache_key(
+            entity_name, entity_type, entity_summary, entity_attributes, context
+        )
+        cached = cache_get(cache_key)
+        if isinstance(cached, dict) and cached.get("bio") and cached.get("persona"):
+            logger.debug(f"profile cache hit for {entity_name}")
+            return cached
 
         is_individual = self._is_individual_entity(entity_type)
 
@@ -411,6 +447,9 @@ class OasisProfileGenerator:
                     if "persona" not in result or not result["persona"]:
                         result["persona"] = entity_summary or f"{entity_name} is a {entity_type}."
 
+                    # Persist a clean LLM result. 30 days — entity-level facts rarely
+                    # change and a cache hit is a big latency/cost win on reruns.
+                    cache_set(cache_key, result, ttl=60 * 60 * 24 * 30)
                     return result
 
                 except json.JSONDecodeError as je:
@@ -420,6 +459,7 @@ class OasisProfileGenerator:
                     result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
                     if result.get("_fixed"):
                         del result["_fixed"]
+                        cache_set(cache_key, result, ttl=60 * 60 * 24 * 30)
                         return result
 
                     last_error = je
@@ -434,6 +474,129 @@ class OasisProfileGenerator:
         return self._generate_profile_rule_based(
             entity_name, entity_type, entity_summary, entity_attributes
         )
+
+    def _build_batch_persona_prompt(self, items: List[Dict[str, Any]], is_individual: bool) -> str:
+        """Build a single prompt asking the LLM to produce profiles for N entities.
+
+        ``items`` is a list of dicts with keys: name, type, summary, attributes, context.
+        The LLM must return a JSON object with key ``profiles`` whose value is an
+        array of length ``len(items)`` in the same order — the object wrapper is
+        required because OpenAI-compatible json_object mode rejects bare arrays.
+        """
+        kind = "individual persons" if is_individual else "organizations / groups"
+        lines = [
+            f"Generate realistic social-media personas for {len(items)} {kind}.",
+            "",
+            "Return ONLY a JSON object of the form:",
+            '{ "profiles": [ /* one persona object per input, in input order */ ] }',
+            "",
+            "Each persona object MUST include: bio, persona, karma (int), friend_count (int),",
+            "follower_count (int), statuses_count (int), age (int or null), gender, mbti,",
+            "country, profession, interested_topics (array of strings).",
+            "Maximize fidelity to the supplied facts. Do not add commentary outside the JSON.",
+            "",
+            "Entities:",
+        ]
+        for i, item in enumerate(items, start=1):
+            attrs_json = json.dumps(item.get("attributes") or {}, ensure_ascii=False, default=str)
+            # Keep context compact to bound batch prompt size
+            ctx = (item.get("context") or "").strip()
+            if len(ctx) > 1200:
+                ctx = ctx[:1200] + " …"
+            lines.append(f"{i}. {item['name']} ({item['type']})")
+            if item.get("summary"):
+                lines.append(f"   summary: {item['summary']}")
+            if attrs_json and attrs_json != "{}":
+                lines.append(f"   attributes: {attrs_json}")
+            if ctx:
+                lines.append(f"   context: {ctx}")
+        return "\n".join(lines)
+
+    def _precompute_profiles_batched(self, entities: List[EntityNode]) -> None:
+        """Warm the profile cache by generating profiles in batches.
+
+        For every entity without a cached profile we group by individual/group
+        kind, chunk into batches of ``Config.OASIS_PROFILE_BATCH_SIZE``, and send
+        one LLM call per batch. Successful batches write per-entity cache entries
+        so the downstream single-entity path is a pure cache read. Batch failures
+        are swallowed — those entities fall through to the existing per-entity
+        LLM path, so correctness is preserved.
+        """
+        batch_size = max(1, Config.OASIS_PROFILE_BATCH_SIZE)
+        if batch_size <= 1 or not entities:
+            return
+
+        # Classify + cache-check each entity once
+        buckets: Dict[bool, List[Dict[str, Any]]] = {True: [], False: []}
+        for entity in entities:
+            entity_type = entity.get_entity_type() or "Entity"
+            context = self._build_entity_context(entity)
+            cache_key = self._profile_cache_key(
+                entity.name, entity_type, entity.summary or "", entity.attributes or {}, context,
+            )
+            if cache_get(cache_key) is not None:
+                continue
+            buckets[self._is_individual_entity(entity_type)].append({
+                "name": entity.name,
+                "type": entity_type,
+                "summary": entity.summary or "",
+                "attributes": entity.attributes or {},
+                "context": context,
+                "cache_key": cache_key,
+            })
+
+        total_misses = len(buckets[True]) + len(buckets[False])
+        if total_misses == 0:
+            logger.info("profile batching: all %d entities already cached", len(entities))
+            return
+        logger.info(
+            "profile batching: %d misses (individual=%d group=%d), batch_size=%d",
+            total_misses, len(buckets[True]), len(buckets[False]), batch_size,
+        )
+
+        for is_individual, items in buckets.items():
+            for start in range(0, len(items), batch_size):
+                chunk = items[start:start + batch_size]
+                self._run_batch_llm_call(chunk, is_individual)
+
+    def _run_batch_llm_call(self, chunk: List[Dict[str, Any]], is_individual: bool) -> None:
+        """Issue one batch LLM call, write per-entity cache entries on success."""
+        if not chunk:
+            return
+        prompt = self._build_batch_persona_prompt(chunk, is_individual)
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": self._get_system_prompt(is_individual)},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.6,
+            )
+            record_usage(response, self.model_name)
+            content = response.choices[0].message.content or "{}"
+            if response.choices[0].finish_reason == "length":
+                content = self._fix_truncated_json(content)
+            data = json.loads(content)
+            profiles = data.get("profiles") if isinstance(data, dict) else None
+            if not isinstance(profiles, list) or len(profiles) != len(chunk):
+                logger.warning(
+                    "profile batch returned %s items, expected %d — falling back per-entity",
+                    "none" if profiles is None else len(profiles), len(chunk),
+                )
+                return
+            for item, profile in zip(chunk, profiles):
+                if not isinstance(profile, dict):
+                    continue
+                # Fill in required fields so downstream consumers don't crash
+                if not profile.get("bio"):
+                    profile["bio"] = (item["summary"] or "")[:200] or f"{item['type']}: {item['name']}"
+                if not profile.get("persona"):
+                    profile["persona"] = item["summary"] or f"{item['name']} is a {item['type']}."
+                cache_set(item["cache_key"], profile, ttl=60 * 60 * 24 * 30)
+        except Exception as e:
+            logger.warning(f"profile batch call failed ({len(chunk)} items): {str(e)[:120]}")
 
     def _fix_truncated_json(self, content: str) -> str:
         """Fix truncated JSON (output cut off by max_tokens limit)"""
@@ -734,6 +897,14 @@ Important:
         # Set graph_id for graph retrieval
         if graph_id:
             self.graph_id = graph_id
+
+        # Warm the profile cache in bulk before per-entity workers run.
+        # Cache hits from here turn the downstream path into pure assembly.
+        if use_llm:
+            try:
+                self._precompute_profiles_batched(entities)
+            except Exception as e:
+                logger.warning(f"batch pre-generation skipped: {e}")
 
         total = len(entities)
         profiles = [None] * total  # Pre-allocate list to maintain order

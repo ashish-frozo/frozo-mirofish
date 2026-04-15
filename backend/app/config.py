@@ -48,6 +48,10 @@ class Config:
     # OASIS simulation configuration
     OASIS_DEFAULT_MAX_ROUNDS = int(os.environ.get('OASIS_DEFAULT_MAX_ROUNDS', '5'))
     OASIS_SIMULATION_DATA_DIR = os.path.join(os.path.dirname(__file__), '../uploads/simulations')
+    # How many agent profiles to generate per LLM call. 1 disables batching
+    # (falls back to one call per entity). 8 is a good quality/throughput
+    # balance; raise for cheap models, lower if truncation becomes common.
+    OASIS_PROFILE_BATCH_SIZE = int(os.environ.get('OASIS_PROFILE_BATCH_SIZE', '8'))
 
     # OASIS platform available actions configuration
     OASIS_TWITTER_ACTIONS = [
