@@ -619,7 +619,8 @@ def _synthesize_seed_brief(simulation_requirement: str) -> str:
     )
 
     try:
-        client = LLMClient()
+        # Bulk work — route to the cheap tier.
+        client = LLMClient(model=Config.LLM_CHEAP_MODEL_NAME)
         body = client.chat(
             messages=[
                 {"role": "system", "content": system},

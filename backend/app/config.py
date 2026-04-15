@@ -31,6 +31,10 @@ class Config:
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+    # Cheap-tier model for bulk work (agent profile generation, simulation
+    # actions, seed brief synthesis). Falls back to LLM_MODEL_NAME when unset.
+    # Example (via OpenRouter): 'google/gemini-2.0-flash-001' or 'deepseek/deepseek-chat'.
+    LLM_CHEAP_MODEL_NAME = os.environ.get('LLM_CHEAP_MODEL_NAME') or os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
 
     # File upload configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
